@@ -1,4 +1,4 @@
-module gcurl
+module github.com/474420502/gurl
 
 go 1.14
 
