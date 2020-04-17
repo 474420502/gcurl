@@ -72,6 +72,31 @@ func TestCurlWordWrap(t *testing.T) {
 
 }
 
+func TestCurlTabCase(t *testing.T) {
+	scurl := `curl 
+	'http://httpbin.org/' 
+	-H 'Connection: keep-alive' 
+	-H 'Cache-Control: max-age=0' 
+	-H 'Upgrade-Insecure-Requests: 1' 
+	-H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36' 
+	-H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9' 
+	-H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9' 
+	--compressed --insecure`
+	curl := ParseRawCURL(scurl)
+
+	ses := curl.CreateSession()
+	wf := curl.CreateWorkflow(ses)
+	resp, err := wf.Execute()
+	if err != nil {
+		t.Error(string(resp.Content()))
+	}
+
+	if len(curl.Header) != 7 { // Content-Type Cookie 会被单独提取出来, 也是Header一种.
+		t.Error(len(curl.Header), curl.Header)
+	}
+
+}
+
 func TestPostFile(t *testing.T) {
 	surl := `curl -X POST "http://httpbin.org/post" --data "@./tests/postfile.txt"`
 	curl := ParseRawCURL(surl)
