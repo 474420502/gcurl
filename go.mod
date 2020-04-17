@@ -1,5 +1,5 @@
-module github.com/474420502/gurl
+module github.com/474420502/gcurl
 
 go 1.14
 
-require github.com/474420502/requests v1.0.0
+require github.com/474420502/requests v1.5.0

@@ -121,20 +121,20 @@ func ParseRawCURL(scurl string) (cURL *CURL) {
 	scurl = strings.TrimLeft(scurl, "curl")
 
 	mathches := regexp.MustCompile(
-		`--[^ ]+ +'[^']+' |`+
-			`--[^ ]+ +"[^"]+" |`+
+		`--[^ ]+ +'[^']+'([\n ]|$)|`+
+			`--[^ ]+ +"[^"]+"([\n ]|$)|`+
 			`--[^ ]+ +[^ ]+|`+
 
-			`-[A-Za-z] +'[^']+' |`+
-			`-[A-Za-z] +"[^"]+" |`+
+			`-[A-Za-z] +'[^']+'([\n ]|$)|`+
+			`-[A-Za-z] +"[^"]+"([\n ]|$)|`+
 			`-[A-Za-z] +[^ ]+|`+
 
-			` '[^']+' |`+
-			` "[^"]+" |`+
+			`[\n ]'[^']+'([\n ]|$)|`+
+			`[\n ]"[^"]+"([\n ]|$)|`+
 			`--[a-z]+ {0,}`,
 	).FindAllString(scurl, -1)
 	for _, m := range mathches {
-		m = strings.TrimSpace(m)
+		m = strings.Trim(m, " \n")
 		switch v := m[0]; v {
 		case '\'':
 			purl, err := url.Parse(m[1 : len(m)-1])

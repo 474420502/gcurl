@@ -44,6 +44,34 @@ func TestCurlTimeout(t *testing.T) {
 	}
 }
 
+func TestCurlWordWrap(t *testing.T) {
+	scurl := `curl 'http://httpbin.org/get' 
+	--connect-timeout 1 
+	-H 'authority: appgrowing.cn'
+	-H 'cache-control: max-age=0'
+	-H 'upgrade-insecure-requests: 1'
+	-H 'user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1'
+	-H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
+	-H 'accept-encoding: gzip, deflate, br' -H 'accept-language: zh' -H 'cookie: _ga=GA1.2.1371058419.1533104518; _gid=GA1.2.896241740.1543307916; _gat_gtag_UA_4002880_19=1' -H 'if-none-match: W/"5bf7a0a9-ca6"' -H 'if-modified-since: Fri, 23 Nov 2018 06:39:37 GMT'`
+	curl := ParseRawCURL(scurl)
+
+	ses := curl.CreateSession()
+	wf := curl.CreateWorkflow(ses)
+	resp, err := wf.Execute()
+	if err != nil {
+		t.Error(string(resp.Content()))
+	}
+
+	if len(curl.Cookies) != 3 {
+		t.Error(curl.Cookies)
+	}
+
+	if len(curl.Header) != 9 { // Content-Type Cookie 会被单独提取出来, 也是Header一种.
+		t.Error(len(curl.Header), curl.Header)
+	}
+
+}
+
 func TestPostFile(t *testing.T) {
 	surl := `curl -X POST "http://httpbin.org/post" --data "@./tests/postfile.txt"`
 	curl := ParseRawCURL(surl)
@@ -51,7 +79,7 @@ func TestPostFile(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !regexp.MustCompile("hello kids").Match(resp.ContentBytes()) {
+	if !regexp.MustCompile("hello kids").Match(resp.Content()) {
 		t.Error(resp.Content())
 	}
 }

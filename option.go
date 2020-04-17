@@ -209,13 +209,14 @@ func parseBodyBinary(u *CURL, data string) {
 func parseHeader(u *CURL, soption string) {
 	matches := regexp.MustCompile(`'([^:]+): ([^']+)'`).FindAllStringSubmatch(soption, 1)[0]
 	key := matches[1]
+	lkey := strings.ToLower(key)
 	value := matches[2]
 
-	switch key {
-	case "Cookie":
+	switch lkey {
+	case "cookie":
 		u.Cookies = ReadRawCookies(value, "")
 		u.CookieJar.SetCookies(u.ParsedURL, u.Cookies)
-	case "Content-Type":
+	case "content-type":
 		u.Body.SetPrefix(value)
 	default:
 		u.Header.Add(key, value)
