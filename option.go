@@ -87,7 +87,9 @@ func judgeOptions(u *CURL, soption string) *parseFunction {
 		return oe.BuildFunction(u, soption)
 	}
 
-	log.Println(soption, " not this option")
+	if soption != "--compressed" {
+		log.Println(soption, "this option is invalid.")
+	}
 	return nil
 }
 
