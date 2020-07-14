@@ -37,7 +37,7 @@ func TestCurlTimeout(t *testing.T) {
 	curl := ParseRawCURL(scurl)
 
 	ses := curl.CreateSession()
-	wf := curl.CreateWorkflow(ses)
+	wf := curl.CreateTemporary(ses)
 	_, err := wf.Execute()
 	if err == nil {
 		t.Error("not timeout")
@@ -56,7 +56,7 @@ func TestCurlWordWrap(t *testing.T) {
 	curl := ParseRawCURL(scurl)
 
 	ses := curl.CreateSession()
-	wf := curl.CreateWorkflow(ses)
+	wf := curl.CreateTemporary(ses)
 	resp, err := wf.Execute()
 	if err != nil {
 		t.Error(string(resp.Content()))
@@ -85,7 +85,7 @@ func TestCurlTabCase(t *testing.T) {
 	curl := ParseRawCURL(scurl)
 
 	ses := curl.CreateSession()
-	wf := curl.CreateWorkflow(ses)
+	wf := curl.CreateTemporary(ses)
 	resp, err := wf.Execute()
 	if err != nil {
 		t.Error(string(resp.Content()))
@@ -100,11 +100,28 @@ func TestCurlTabCase(t *testing.T) {
 func TestPostFile(t *testing.T) {
 	surl := `curl -X POST "http://httpbin.org/post" --data "@./tests/postfile.txt"`
 	curl := ParseRawCURL(surl)
-	resp, err := curl.CreateWorkflow(curl.CreateSession()).Execute()
+	resp, err := curl.CreateTemporary(curl.CreateSession()).Execute()
 	if err != nil {
 		t.Error(err)
 	}
 	if !regexp.MustCompile("hello kids").Match(resp.Content()) {
+		t.Error(resp.Content())
+	}
+}
+
+func TestCurlPaserHttp(t *testing.T) {
+	surl := ` http://httpbin.org/get  -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
+	curl := ParseRawCURL(surl)
+	resp, err := curl.CreateTemporary(curl.CreateSession()).Execute()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !regexp.MustCompile("Accept-Encoding").Match(resp.Content()) {
+		t.Error(resp.Content())
+	}
+
+	if !regexp.MustCompile("keep-alive").Match(resp.Content()) {
 		t.Error(resp.Content())
 	}
 }

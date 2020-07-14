@@ -129,7 +129,7 @@ func (trie *hTrie) SearchDepth(iword trieWord) interface{} {
 	return result
 }
 
-// Match Returns if the word is in the trie.
+// Match Returns  the word is in the trie.
 func (trie *hTrie) Match(iword trieWord) interface{} {
 	cur := trie
 	word := iword.GetWord()

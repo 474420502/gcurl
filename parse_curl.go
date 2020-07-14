@@ -55,22 +55,23 @@ func (curl *CURL) CreateSession() *requests.Session {
 	ses := requests.NewSession()
 	ses.SetHeader(curl.Header)
 	ses.SetCookies(curl.ParsedURL, curl.Cookies)
-	ses.SetConfig(requests.CRequestTimeout, curl.Timeout)
+
+	ses.Config().SetTimeout(curl.Timeout)
 
 	if curl.Auth != nil {
-		ses.SetConfig(requests.CBasicAuth, curl.Auth)
+		ses.Config().SetBasicAuth(curl.Auth)
 	}
 
 	if curl.Insecure {
-		ses.SetConfig(requests.CInsecure, curl.Insecure)
+		ses.Config().SetInsecure(curl.Insecure)
 	}
 
 	return ses
 }
 
-// CreateWorkflow 根据Session 创建Workflow
-func (curl *CURL) CreateWorkflow(ses *requests.Session) *requests.Workflow {
-	var wf *requests.Workflow
+// CreateTemporary 根据Session 创建Temporary
+func (curl *CURL) CreateTemporary(ses *requests.Session) *requests.Temporary {
+	var wf *requests.Temporary
 
 	if ses == nil {
 		ses = curl.CreateSession()
@@ -97,9 +98,9 @@ func (curl *CURL) CreateWorkflow(ses *requests.Session) *requests.Workflow {
 	return wf
 }
 
-// Workflow 根据自己CreateSession 创建Workflow
-func (curl *CURL) Workflow() *requests.Workflow {
-	return curl.CreateWorkflow(curl.CreateSession())
+// Temporary 根据自己CreateSession 创建Temporary
+func (curl *CURL) Temporary() *requests.Temporary {
+	return curl.CreateTemporary(curl.CreateSession())
 }
 
 // ParseRawCURL curl_bash
@@ -120,6 +121,22 @@ func ParseRawCURL(scurl string) (cURL *CURL) {
 	scurl = strings.TrimSpace(scurl)
 	scurl = strings.TrimLeft(scurl, "curl")
 
+	if strings.HasPrefix(scurl, "http") {
+		var parseurl []rune
+		for _, v := range scurl {
+			if v == ' ' {
+				break
+			}
+			parseurl = append(parseurl, v)
+		}
+
+		purl, err := url.Parse(string(parseurl))
+		if err != nil {
+			panic(err)
+		}
+		curl.ParsedURL = purl
+	}
+
 	mathches := regexp.MustCompile(
 		`--[^ ]+ +'[^']+'([\n \t]|$)|`+
 			`--[^ ]+ +"[^"]+"([\n \t]|$)|`+
@@ -133,6 +150,7 @@ func ParseRawCURL(scurl string) (cURL *CURL) {
 			`[\n \t]"[^"]+"([\n \t]|$)|`+
 			`--[a-z]+ {0,}`,
 	).FindAllString(scurl, -1)
+
 	for _, m := range mathches {
 		m = strings.Trim(m, " \n\t")
 		switch v := m[0]; v {
