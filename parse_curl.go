@@ -103,8 +103,8 @@ func (curl *CURL) Temporary() *requests.Temporary {
 	return curl.CreateTemporary(curl.CreateSession())
 }
 
-// ParseRawCURL curl_bash
-func ParseRawCURL(scurl string) (cURL *CURL) {
+// Parse curl_bash
+func Parse(scurl string) (cURL *CURL) {
 	executor := newPQueueExecute()
 	curl := New()
 
