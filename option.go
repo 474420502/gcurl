@@ -24,7 +24,7 @@ func init() {
 		// Body
 		{"--data", 10, parseBodyASCII, &extract{re: "--data +(.+)", execute: extractData}},
 		{"--data-urlencode", 10, parseBodyURLEncode, &extract{re: "--data-urlencode +(.+)", execute: extractData}},
-		{"--data-binary", 10, parseBodyBinary, &extract{re: "--data-binary +(.+)", execute: extractData}},
+		{"--data-binary", 10, parseBodyBinary, &extract{re: "--data-binary +(\\${0,1}.+)", execute: extractData}},
 		{"--data-ascii", 10, parseBodyASCII, &extract{re: "--data-ascii +(.+)", execute: extractData}},
 		{"--data-raw", 10, parseBodyRaw, &extract{re: "--data-raw +(.+)", execute: extractData}},
 		//"--"
@@ -93,6 +93,7 @@ func judgeOptions(u *CURL, soption string) *parseFunction {
 	return nil
 }
 
+// 提取 被' or " 被包裹 Value值
 func extractData(re, soption string) string {
 	datas := regexp.MustCompile(re).FindStringSubmatch(soption)
 	return strings.Trim(datas[1], "'\"")
@@ -185,15 +186,15 @@ func parseBodyASCII(u *CURL, data string) {
 
 // 处理@ 并且替/r/n符号
 func parseBodyBinary(u *CURL, data string) {
-	if u.Method != "" {
+	if u.Method == "" {
 		u.Method = "POST"
 	}
 
 	u.Body.SetPrefix(requests.TypeURLENCODED)
 
-	if data[0] != '@' {
-		u.Body.SetIOBody(data)
-	} else {
+	firstchar := data[0]
+	switch firstchar {
+	case '@':
 		f, err := os.Open(data[1:])
 		if err != nil {
 			panic(err)
@@ -205,7 +206,22 @@ func parseBodyBinary(u *CURL, data string) {
 		}
 		bdata = regexp.MustCompile("\n|\r").ReplaceAll(bdata, []byte(""))
 		u.Body.SetIOBody(bdata)
+	case '$':
+		data = strings.ReplaceAll(data[2:], `\r\n`, "\r\n")
+		u.Body.SetIOBody(data)
+		// boundary parse
+		// bindex := strings.Index(data, `\r\n`)
+		// boundary := data[4:bindex] // '$--(len=4) build function 已经Trim 末尾'
+
+		// log.Println(fmt.Sprintf(`\r\n--%s--\r\n`, boundary))
+		// blastindex := strings.LastIndex(data, fmt.Sprintf(`\r\n--%s--\r\n`, boundary))
+		// data = data[bindex+4 : blastindex]
+		// strings.Split(data, fmt.Sprintf(`\r\n--%s\r\n`, boundary))
+		// log.Println(data)
+	default:
+		u.Body.SetIOBody(data)
 	}
+
 }
 
 func parseHeader(u *CURL, soption string) {

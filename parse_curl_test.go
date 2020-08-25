@@ -23,7 +23,7 @@ func TestParseCURL(t *testing.T) {
 	// Access-Control-Request-Method 方法告诉 --data-binary 默认是POST
 
 	for _, scurl := range scurls {
-		curl := ParseRawCURL(scurl)
+		curl := Parse(scurl)
 
 		if curl.Method == "" {
 			t.Error("curl.Method is nil")
@@ -34,7 +34,7 @@ func TestParseCURL(t *testing.T) {
 
 func TestCurlTimeout(t *testing.T) {
 	scurl := `curl 'https://javtc.com/' --connect-timeout 1 -H 'authority: appgrowing.cn' -H 'cache-control: max-age=0' -H 'upgrade-insecure-requests: 1' -H 'user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1' -H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8' -H 'accept-encoding: gzip, deflate, br' -H 'accept-language: zh' -H 'cookie: _ga=GA1.2.1371058419.1533104518; _gid=GA1.2.896241740.1543307916; _gat_gtag_UA_4002880_19=1' -H 'if-none-match: W/"5bf7a0a9-ca6"' -H 'if-modified-since: Fri, 23 Nov 2018 06:39:37 GMT'`
-	curl := ParseRawCURL(scurl)
+	curl := Parse(scurl)
 
 	ses := curl.CreateSession()
 	wf := curl.CreateTemporary(ses)
@@ -53,7 +53,7 @@ func TestCurlWordWrap(t *testing.T) {
 	-H 'user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1'
 	-H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
 	-H 'accept-encoding: gzip, deflate, br' -H 'accept-language: zh' -H 'cookie: _ga=GA1.2.1371058419.1533104518; _gid=GA1.2.896241740.1543307916; _gat_gtag_UA_4002880_19=1' -H 'if-none-match: W/"5bf7a0a9-ca6"' -H 'if-modified-since: Fri, 23 Nov 2018 06:39:37 GMT'`
-	curl := ParseRawCURL(scurl)
+	curl := Parse(scurl)
 
 	ses := curl.CreateSession()
 	wf := curl.CreateTemporary(ses)
@@ -82,7 +82,7 @@ func TestCurlTabCase(t *testing.T) {
 	-H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9' 
 	-H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9' 
 	--compressed --insecure`
-	curl := ParseRawCURL(scurl)
+	curl := Parse(scurl)
 
 	ses := curl.CreateSession()
 	wf := curl.CreateTemporary(ses)
@@ -99,7 +99,7 @@ func TestCurlTabCase(t *testing.T) {
 
 func TestPostFile(t *testing.T) {
 	surl := `curl -X POST "http://httpbin.org/post" --data "@./tests/postfile.txt"`
-	curl := ParseRawCURL(surl)
+	curl := Parse(surl)
 	resp, err := curl.CreateTemporary(curl.CreateSession()).Execute()
 	if err != nil {
 		t.Error(err)
@@ -111,17 +111,46 @@ func TestPostFile(t *testing.T) {
 
 func TestCurlPaserHttp(t *testing.T) {
 	surl := ` http://httpbin.org/get  -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
-	curl := ParseRawCURL(surl)
+	curl := Parse(surl)
 	resp, err := curl.CreateTemporary(curl.CreateSession()).Execute()
 	if err != nil {
 		t.Error(err)
 	}
 
 	if !regexp.MustCompile("Accept-Encoding").Match(resp.Content()) {
-		t.Error(resp.Content())
+		t.Error(string(resp.Content()))
 	}
 
-	if !regexp.MustCompile("keep-alive").Match(resp.Content()) {
-		t.Error(resp.Content())
+	if !regexp.MustCompile("Accept-Language").Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
+
+}
+
+func TestCurlErrorCase1(t *testing.T) {
+	xxxxapi := `curl  'http://httpbin.org/post' \
+	-H 'authority: api.xxxx.tv' \
+	-H 'user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36' \
+	-H 'content-type: multipart/form-data; boundary=----WebKitFormBoundary3bCA1lzvhj4kBR4Q' \
+	-H 'accept: */*' \
+	-H 'origin: https://www.xxxx.tv' \
+	-H 'sec-fetch-site: same-site' \
+	-H 'sec-fetch-mode: cors' \
+	-H 'sec-fetch-dest: empty' \
+	-H 'referer: https://www.xxxx.tv/lives' \
+	-H 'accept-language: zh-CN,zh;q=0.9' \
+	--data-binary $'------WebKitFormBoundary3bCA1lzvhj4kBR4Q\r\nContent-Disposition: form-data; name="keyType"\r\n\r\n0\r\n------WebKitFormBoundary3bCA1lzvhj4kBR4Q\r\nContent-Disposition: form-data; name="body"\r\n\r\n{"deviceType":7,"requestSource":"WEB","iNetType":5}\r\n------WebKitFormBoundary3bCA1lzvhj4kBR4Q--\r\n' \
+	--compressed`
+
+	curl := Parse(xxxxapi)
+	resp, err := curl.CreateTemporary(nil).Execute()
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(curl.String())
+
+	if !regexp.MustCompile("keyType").Match(resp.Content()) {
+		t.Error(string(resp.Content()))
 	}
 }

@@ -138,7 +138,9 @@ func Parse(scurl string) (cURL *CURL) {
 	}
 
 	mathches := regexp.MustCompile(
-		`--[^ ]+ +'[^']+'([\n \t]|$)|`+
+		`--data-binary +\$.+--\\r\\n'([\n \t]|$)|`+
+			`--[^ ]+ +'[^']+'([\n \t]|$)|`+
+
 			`--[^ ]+ +"[^"]+"([\n \t]|$)|`+
 			`--[^ ]+ +[^ ]+|`+
 
