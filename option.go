@@ -195,7 +195,17 @@ func parseBodyBinary(u *CURL, data string) {
 	firstchar := data[0]
 	switch firstchar {
 	case '@':
-		u.Body.SetIOBody(data)
+		f, err := os.Open(data[1:])
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		bdata, err := ioutil.ReadAll(f)
+		if err != nil {
+			panic(err)
+		}
+		bdata = regexp.MustCompile("\n|\r").ReplaceAll(bdata, []byte(""))
+		u.Body.SetIOBody(bdata)
 	case '$':
 		data = strings.ReplaceAll(data[2:], `\r\n`, "\r\n")
 		u.Body.SetIOBody(data)
@@ -209,17 +219,7 @@ func parseBodyBinary(u *CURL, data string) {
 		// strings.Split(data, fmt.Sprintf(`\r\n--%s\r\n`, boundary))
 		// log.Println(data)
 	default:
-		f, err := os.Open(data[1:])
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		bdata, err := ioutil.ReadAll(f)
-		if err != nil {
-			panic(err)
-		}
-		bdata = regexp.MustCompile("\n|\r").ReplaceAll(bdata, []byte(""))
-		u.Body.SetIOBody(bdata)
+		u.Body.SetIOBody(data)
 	}
 
 }
