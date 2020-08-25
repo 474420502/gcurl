@@ -1,3 +1,6 @@
 *.pyc
 *.vscode
 *.log
+
+#vscode
+debug.test

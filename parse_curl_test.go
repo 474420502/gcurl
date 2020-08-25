@@ -124,4 +124,33 @@ func TestCurlPaserHttp(t *testing.T) {
 	if !regexp.MustCompile("Accept-Language").Match(resp.Content()) {
 		t.Error(string(resp.Content()))
 	}
+
+}
+
+func TestCurlErrorCase1(t *testing.T) {
+	xxxxapi := `curl  'http://httpbin.org/post' \
+	-H 'authority: api.xxxx.tv' \
+	-H 'user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36' \
+	-H 'content-type: multipart/form-data; boundary=----WebKitFormBoundary3bCA1lzvhj4kBR4Q' \
+	-H 'accept: */*' \
+	-H 'origin: https://www.xxxx.tv' \
+	-H 'sec-fetch-site: same-site' \
+	-H 'sec-fetch-mode: cors' \
+	-H 'sec-fetch-dest: empty' \
+	-H 'referer: https://www.xxxx.tv/lives' \
+	-H 'accept-language: zh-CN,zh;q=0.9' \
+	--data-binary $'------WebKitFormBoundary3bCA1lzvhj4kBR4Q\r\nContent-Disposition: form-data; name="keyType"\r\n\r\n0\r\n------WebKitFormBoundary3bCA1lzvhj4kBR4Q\r\nContent-Disposition: form-data; name="body"\r\n\r\n{"deviceType":7,"requestSource":"WEB","iNetType":5}\r\n------WebKitFormBoundary3bCA1lzvhj4kBR4Q--\r\n' \
+	--compressed`
+
+	curl := Parse(xxxxapi)
+	resp, err := curl.CreateTemporary(nil).Execute()
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log(curl.String())
+
+	if !regexp.MustCompile("keyType").Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
 }

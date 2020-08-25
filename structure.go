@@ -247,7 +247,7 @@ func (pqe *pQueueExecute) Len() int {
 // 	return content
 // }
 
-// CNode 循环链表 三色标记 不确定是否会清除循环引用, 网上说会
+// CNode 循环链表 三色标记
 type CNode struct {
 	value interface{}
 	prev  *CNode
