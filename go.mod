@@ -1,5 +1,5 @@
 module github.com/474420502/gcurl
 
-go 1.14
+go 1.15
 
-require github.com/474420502/requests v1.7.0
+require github.com/474420502/requests v1.8.1
