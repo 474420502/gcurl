@@ -7,7 +7,7 @@ example1:
 
 ```go
 	surl := ` http://httpbin.org/get  -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
-	curl := Parse(surl)
+	curl := gcurl.Parse(surl)
 	ses := curl.CreateSession()
 	tp := curl.CreateTemporary(ses)
 	log.Println(ses.GetHeader())
@@ -39,7 +39,7 @@ example2:
 	--connect-timeout 1 
 	-H 'authority: appgrowing.cn'
 	-H 'accept-encoding: gzip, deflate, br' -H 'accept-language: zh' -H 'cookie: _ga=GA1.2.1371058419.1533104518; _gid=GA1.2.896241740.1543307916; _gat_gtag_UA_4002880_19=1' -H 'if-none-match: W/"5bf7a0a9-ca6"' -H 'if-modified-since: Fri, 23 Nov 2018 06:39:37 GMT'`
-	curl := Parse(scurl)
+	curl := gcurl.Parse(scurl)
 	ses := curl.CreateSession()
 	wf := curl.CreateTemporary(ses)
 	log.Println(ses.GetCookies(wf.ParsedURL))
