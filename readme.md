@@ -1,4 +1,5 @@
-# Parse curl To golang requests(https://github.com/474420502/requests)
+# Parse curl To golang requests
+* requests(https://github.com/474420502/requests)
 * Easy to transform curl bash to golang code
 * requests(inherit from curl bash) can add setting(config,cookie,header) and request url by you
 
