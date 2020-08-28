@@ -2,6 +2,8 @@ github.com/474420502/requests v1.7.0 h1:oaBwVrxZ7yZ+hDOKwHm2NflYib2y1geIUxBxQ2U4
 github.com/474420502/requests v1.7.0/go.mod h1:SLXrQ5dL9c7dkIeKNUCBAjOIt3J9KFCS2RQjWJecNwo=
 github.com/474420502/requests v1.8.1 h1:zR2PE97PY6qTfwCtUl7fJ2Sg7JEXcXZg2nxgxrOutFU=
 github.com/474420502/requests v1.8.1/go.mod h1:SLXrQ5dL9c7dkIeKNUCBAjOIt3J9KFCS2RQjWJecNwo=
+github.com/474420502/requests v1.9.1 h1:gCDmBCW1ym8zOvKKBGjEG9wafMY7imYk2u28+Oy1WEc=
+github.com/474420502/requests v1.9.1/go.mod h1:x2T9l+e40R6kxxMvNm+YSZ9D6BHAXUDak4kQElIPJ9A=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/elazarl/goproxy v0.0.0-20190711103511-473e67f1d7d2 h1:aZtFdDNWY/yH86JPR2WX/PN63635VsE/f/nXNPAbYxY=

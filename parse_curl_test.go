@@ -160,14 +160,16 @@ func TestReadmeEg1(t *testing.T) {
 	curl := Parse(surl)
 	ses := curl.CreateSession()
 	tp := curl.CreateTemporary(ses)
-	log.Println(ses.GetHeader())
+	// log.Println(ses.GetHeader())
 	// map[Accept-Encoding:[gzip, deflate] Accept-Language:[zh-CN,zh;q=0.9] Connection:[keep-alive]]
 	resp, err := tp.Execute()
 	if err != nil {
 		log.Panic(err)
 	}
+	if string(resp.Content()) != "" {
 
-	log.Println(string(resp.Content()))
+	}
+	// log.Println(string(resp.Content()))
 	//     ------response-----
 	//     "args": {},
 	//     "headers": {
@@ -190,13 +192,14 @@ func TestReadmeEg2(t *testing.T) {
 	curl := Parse(scurl)
 	ses := curl.CreateSession()
 	wf := curl.CreateTemporary(ses)
-	log.Println(ses.GetCookies(wf.ParsedURL))
+	// log.Println(ses.GetCookies(wf.ParsedURL))
 	// [_ga=GA1.2.1371058419.1533104518 _gid=GA1.2.896241740.1543307916 _gat_gtag_UA_4002880_19=1]
 	resp, err := wf.Execute()
 	if err != nil {
 		log.Panic(string(resp.Content()))
 	}
-	log.Println(string(resp.Content()))
+
+	// log.Println(string(resp.Content()))
 	// {
 	// 	"args": {},
 	// 	"headers": {
