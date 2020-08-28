@@ -77,6 +77,8 @@ func (curl *CURL) CreateTemporary(ses *requests.Session) *requests.Temporary {
 		ses = curl.CreateSession()
 	}
 
+	curl.Method = strings.ToUpper(curl.Method)
+
 	switch curl.Method {
 	case "HEAD":
 		wf = ses.Head(curl.ParsedURL.String())

@@ -10,6 +10,40 @@ func init() {
 	log.SetFlags(log.Llongfile)
 }
 
+func TestMethod(t *testing.T) {
+	var scurl string
+	scurl = `curl -X PUT "http://httpbin.org/put"`
+	_, err := Parse(scurl).CreateTemporary(nil).Execute()
+	if err != nil {
+		t.Error(err)
+	}
+
+	scurl = `curl -X HEAD "http://httpbin.org/head"`
+	_, err = Parse(scurl).CreateTemporary(nil).Execute()
+	if err != nil {
+		t.Error(err)
+	}
+
+	scurl = `curl -X patch "http://httpbin.org/patch"`
+	_, err = Parse(scurl).CreateTemporary(nil).Execute()
+	if err != nil {
+		t.Error(err)
+	}
+
+	scurl = `curl -X options "http://httpbin.org/options"`
+	_, err = Parse(scurl).CreateTemporary(nil).Execute()
+	if err != nil {
+		t.Error(err)
+	}
+
+	scurl = `curl -X DELETE "http://httpbin.org/DELETE"`
+	_, err = Parse(scurl).CreateTemporary(nil).Execute()
+	if err != nil {
+		t.Error(err)
+	}
+
+}
+
 func TestParseCURL(t *testing.T) {
 
 	scurls := []string{
@@ -153,6 +187,75 @@ func TestCurlErrorCase1(t *testing.T) {
 	if !regexp.MustCompile("keyType").Match(resp.Content()) {
 		t.Error(string(resp.Content()))
 	}
+}
+
+func TestCharFile(t *testing.T) {
+	surl := `curl -X POST  'http://httpbin.org/post' --data-binary "@./tests/postfile.txt" `
+	curl := Parse(surl)
+	tp := curl.CreateTemporary(nil)
+	resp, err := tp.Execute()
+	if err != nil {
+		panic(err)
+	}
+	if !regexp.MustCompile("hello kids").Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
+
+	surl = `curl -X POST  'http://httpbin.org/post' --data-urlencode a=12&b=21 `
+	curl = Parse(surl)
+	tp = curl.CreateTemporary(nil)
+	resp, err = tp.Execute()
+	if err != nil {
+		panic(err)
+	}
+	if !regexp.MustCompile(`"a": "12"`).Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
+
+	if !regexp.MustCompile(`"b": "21"`).Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
+
+	surl = `curl -X POST  'http://httpbin.org/post' --data-raw a=12&b=aax `
+	curl = Parse(surl)
+	tp = curl.CreateTemporary(nil)
+	resp, err = tp.Execute()
+	if err != nil {
+		panic(err)
+	}
+	if !regexp.MustCompile(`"a": "12"`).Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
+
+	if !regexp.MustCompile(`"b": "aax"`).Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
+
+}
+
+func TestUser(t *testing.T) {
+	surl := `curl   'http://httpbin.org/basic-auth/eson/1234567' --user eson:1234567 `
+	curl := Parse(surl)
+	tp := curl.CreateTemporary(nil)
+	resp, err := tp.Execute()
+	if err != nil {
+		panic(err)
+	}
+	if !regexp.MustCompile(`"authenticated": true`).Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
+
+	surl = `curl -X POST  'http://httpbin.org/post' --user-agent golang-gcurl `
+	curl = Parse(surl)
+	tp = curl.CreateTemporary(nil)
+	resp, err = tp.Execute()
+	if err != nil {
+		panic(err)
+	}
+	if !regexp.MustCompile(`"User-Agent": "golang-gcurl"`).Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
+
 }
 
 func TestReadmeEg1(t *testing.T) {
