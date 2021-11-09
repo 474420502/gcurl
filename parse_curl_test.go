@@ -42,6 +42,15 @@ func TestMethod(t *testing.T) {
 		t.Error(err)
 	}
 
+	scurl = `curl "http://httpbin.org/uuid"`
+	resp, err := Execute(scurl)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !regexp.MustCompile("uuid").Match(resp.Content()) {
+		t.Error(resp.Content())
+	}
 }
 
 func TestParseCURL(t *testing.T) {

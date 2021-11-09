@@ -50,6 +50,11 @@ func (curl *CURL) String() string {
 	return ""
 }
 
+// Execute 直接执行curlbash
+func Execute(curlbash string) (requests.IResponse, error) {
+	return Parse(curlbash).CreateTemporary(nil).Execute()
+}
+
 // CreateSession 创建Session
 func (curl *CURL) CreateSession() *requests.Session {
 	ses := requests.NewSession()
