@@ -1,7 +1,3 @@
-// Copyright 2009 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package gcurl
 
 import (
@@ -10,7 +6,76 @@ import (
 	"strings"
 )
 
-var isTokenTable = [127]bool{
+var isTokenDict = [127]bool{
+
+	'0': true,
+	'1': true,
+	'2': true,
+	'3': true,
+	'4': true,
+	'5': true,
+	'6': true,
+	'7': true,
+	'8': true,
+	'9': true,
+	'A': true,
+	'B': true,
+	'C': true,
+	'D': true,
+	'E': true,
+	'F': true,
+	'G': true,
+	'H': true,
+	'I': true,
+	'J': true,
+	'K': true,
+	'L': true,
+	'M': true,
+	'N': true,
+	'O': true,
+	'P': true,
+	'Q': true,
+	'R': true,
+	'S': true,
+	'T': true,
+	'U': true,
+	'W': true,
+	'V': true,
+	'X': true,
+	'Y': true,
+	'Z': true,
+	'^': true,
+	'_': true,
+	'`': true,
+	'a': true,
+	'b': true,
+	'c': true,
+	'd': true,
+	'e': true,
+	'f': true,
+	'g': true,
+	'h': true,
+	'i': true,
+	'j': true,
+	'k': true,
+	'l': true,
+	'm': true,
+	'n': true,
+	'o': true,
+	'p': true,
+	'q': true,
+	'r': true,
+	's': true,
+	't': true,
+	'u': true,
+	'v': true,
+	'w': true,
+	'x': true,
+	'y': true,
+	'z': true,
+	'|': true,
+	'~': true,
+
 	'!':  true,
 	'#':  true,
 	'$':  true,
@@ -21,85 +86,18 @@ var isTokenTable = [127]bool{
 	'+':  true,
 	'-':  true,
 	'.':  true,
-	'0':  true,
-	'1':  true,
-	'2':  true,
-	'3':  true,
-	'4':  true,
-	'5':  true,
-	'6':  true,
-	'7':  true,
-	'8':  true,
-	'9':  true,
-	'A':  true,
-	'B':  true,
-	'C':  true,
-	'D':  true,
-	'E':  true,
-	'F':  true,
-	'G':  true,
-	'H':  true,
-	'I':  true,
-	'J':  true,
-	'K':  true,
-	'L':  true,
-	'M':  true,
-	'N':  true,
-	'O':  true,
-	'P':  true,
-	'Q':  true,
-	'R':  true,
-	'S':  true,
-	'T':  true,
-	'U':  true,
-	'W':  true,
-	'V':  true,
-	'X':  true,
-	'Y':  true,
-	'Z':  true,
-	'^':  true,
-	'_':  true,
-	'`':  true,
-	'a':  true,
-	'b':  true,
-	'c':  true,
-	'd':  true,
-	'e':  true,
-	'f':  true,
-	'g':  true,
-	'h':  true,
-	'i':  true,
-	'j':  true,
-	'k':  true,
-	'l':  true,
-	'm':  true,
-	'n':  true,
-	'o':  true,
-	'p':  true,
-	'q':  true,
-	'r':  true,
-	's':  true,
-	't':  true,
-	'u':  true,
-	'v':  true,
-	'w':  true,
-	'x':  true,
-	'y':  true,
-	'z':  true,
-	'|':  true,
-	'~':  true,
 }
 
 func isTokenRune(r rune) bool {
 	i := int(r)
-	return i < len(isTokenTable) && isTokenTable[i]
+	return i < len(isTokenDict) && isTokenDict[i]
 }
 
-// ReadRawCookies parses all "Cookie" values from the rawcookie  and
+// GetRawCookies parses all 'Cookie' values from the rawcookie and
 // returns the successfully parsed Cookies.
 //
-// if filter isn't empty, only cookies of that name are returned
-func ReadRawCookies(soptions string, filter string) []*http.Cookie {
+// if filter is not empty, only cookies of that name are returned
+func GetRawCookies(soptions string, filter string) []*http.Cookie {
 
 	line := soptions
 
@@ -146,26 +144,26 @@ func validCookieDomain(v string) bool {
 	return false
 }
 
-// isCookieDomainName returns whether s is a valid domain name or a valid
+// isCookieDomainName returns whether str is a valid domain name or a valid
 // domain name with a leading dot '.'.  It is almost a direct copy of
 // package net's isDomainName.
-func isCookieDomainName(s string) bool {
-	if len(s) == 0 {
+func isCookieDomainName(str string) bool {
+	if len(str) == 0 {
 		return false
 	}
-	if len(s) > 255 {
+	if len(str) > 255 {
 		return false
 	}
 
-	if s[0] == '.' {
+	if str[0] == '.' {
 		// A cookie a domain attribute may start with a leading dot.
-		s = s[1:]
+		str = str[1:]
 	}
 	last := byte('.')
 	ok := false // Ok once we've seen a letter.
 	partlen := 0
-	for i := 0; i < len(s); i++ {
-		c := s[i]
+	for i := 0; i < len(str); i++ {
+		c := str[i]
 		switch {
 		default:
 			return false

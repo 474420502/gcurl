@@ -269,6 +269,7 @@ func TestReadmeEg1(t *testing.T) {
 	if err != nil {
 		log.Panic(err)
 	}
+
 	if string(resp.Content()) != "" {
 
 	}
@@ -322,5 +323,16 @@ func TestReadmeEg2(t *testing.T) {
 }
 
 func TestReadmeEg3(t *testing.T) {
-
+	c := Parse(`curl -X GET "http://httpbin.org/anything/1" -H "accept: application/json"`)
+	tp := c.Temporary()
+	pp := tp.PathParam(`anything/(\d+)`)
+	pp.IntSet(100)
+	resp, err := tp.Execute()
+	if err != nil {
+		t.Error(err)
+	}
+	log.Println(string(resp.Content()))
+	if !regexp.MustCompile("http://httpbin.org/anything/100").Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
 }

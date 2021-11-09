@@ -93,7 +93,7 @@ func (trie *hTrie) Remove(word string) {
 		lastchar := cur.char
 
 		if len(cur.next) == 0 {
-			for cur.isWord != true && cur.prev != nil {
+			for !cur.isWord && cur.prev != nil {
 				lastchar = cur.char
 				cur = cur.prev
 				if len(cur.next) > 1 {
@@ -246,20 +246,3 @@ func (pqe *pQueueExecute) Len() int {
 // 	}
 // 	return content
 // }
-
-// CNode 循环链表 三色标记
-type CNode struct {
-	value interface{}
-	prev  *CNode
-	next  *CNode
-}
-
-// GetValue 获取到Node的值
-func (node *CNode) GetValue() interface{} {
-	return node.value
-}
-
-// SetValue 获取到Node的值
-func (node *CNode) SetValue(value interface{}) {
-	node.value = value
-}

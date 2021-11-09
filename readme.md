@@ -1,9 +1,10 @@
 # Parse curl To golang requests
+
 * requests(https://github.com/474420502/requests)
 * Easy to transform curl bash to golang code
 * requests(inherit from curl bash) can add setting(config,cookie,header) and request url by you
 
-example1:
+* example1:
 
 ```go
 	surl := ` http://httpbin.org/get  -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
@@ -32,7 +33,7 @@ example1:
 	// }
 ```
 
-example2:
+* example2:
 
 ```go
 	scurl := `curl 'http://httpbin.org/get' 
@@ -65,4 +66,34 @@ example2:
 	// 	"origin": "172.17.0.1",
 	// 	"url": "http://httpbin.org/get"
 	//   }
+```
+
+* example3:
+
+```go
+	c := gcurl.Parse(`curl -X GET "http://httpbin.org/anything/1" -H "accept: application/json"`)
+	tp := c.Temporary()
+	pp := tp.PathParam(`anything/(\d+)`)
+	pp.IntSet(100) // Set Param. 
+	resp, err := tp.Execute()
+	if err != nil {
+		t.Error(err)
+	}
+	log.Println(string(resp.Content()))
+	// {
+	//   "args": {}, 
+	//   "data": "", 
+	//   "files": {}, 
+	//   "form": {}, 
+	//   "headers": {
+	//     "Accept": "application/json", 
+	//     "Connection": "close", 
+	//     "Host": "httpbin.org", 
+	//     "User-Agent": "Go-http-client/1.1"
+	//   }, 
+	//   "json": null, 
+	//   "method": "GET", 
+	//   "origin": "172.17.0.1", 
+	//   "url": "http://httpbin.org/anything/100"
+	// }
 ```
