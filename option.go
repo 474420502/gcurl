@@ -1,6 +1,7 @@
 package gcurl
 
 import (
+	"bytes"
 	"io/ioutil"
 	"log"
 	"os"
@@ -147,8 +148,8 @@ func parseBodyURLEncode(u *CURL, data string) {
 		u.Method = "POST"
 	}
 
-	u.Body.SetPrefix(requests.TypeURLENCODED)
-	u.Body.SetIOBody(data)
+	u.ContentType = requests.TypeURLENCODED
+	u.Body = bytes.NewBufferString(data)
 }
 
 func parseBodyRaw(u *CURL, data string) {
@@ -156,8 +157,8 @@ func parseBodyRaw(u *CURL, data string) {
 		u.Method = "POST"
 	}
 
-	u.Body.SetPrefix(requests.TypeURLENCODED)
-	u.Body.SetIOBody(data)
+	u.ContentType = requests.TypeURLENCODED
+	u.Body = bytes.NewBufferString(data)
 }
 
 func parseBodyASCII(u *CURL, data string) {
@@ -165,10 +166,10 @@ func parseBodyASCII(u *CURL, data string) {
 		u.Method = "POST"
 	}
 
-	u.Body.SetPrefix(requests.TypeURLENCODED)
+	u.ContentType = requests.TypeURLENCODED
 
 	if data[0] != '@' {
-		u.Body.SetIOBody(data)
+		u.Body = bytes.NewBufferString(data)
 	} else {
 		f, err := os.Open(data[1:])
 		if err != nil {
@@ -180,7 +181,7 @@ func parseBodyASCII(u *CURL, data string) {
 		if err != nil {
 			panic(err)
 		}
-		u.Body.SetIOBody(bdata)
+		u.Body = bytes.NewBuffer(bdata)
 	}
 }
 
@@ -190,7 +191,7 @@ func parseBodyBinary(u *CURL, data string) {
 		u.Method = "POST"
 	}
 
-	u.Body.SetPrefix(requests.TypeURLENCODED)
+	u.ContentType = requests.TypeURLENCODED
 
 	firstchar := data[0]
 	switch firstchar {
@@ -205,10 +206,10 @@ func parseBodyBinary(u *CURL, data string) {
 			panic(err)
 		}
 		bdata = regexp.MustCompile("\n|\r").ReplaceAll(bdata, []byte(""))
-		u.Body.SetIOBody(bdata)
+		u.Body = bytes.NewBuffer(bdata)
 	case '$':
 		data = strings.ReplaceAll(data[2:], `\r\n`, "\r\n")
-		u.Body.SetIOBody(data)
+		u.Body = bytes.NewBufferString(data)
 		// boundary parse
 		// bindex := strings.Index(data, `\r\n`)
 		// boundary := data[4:bindex] // '$--(len=4) build function 已经Trim 末尾'
@@ -219,7 +220,7 @@ func parseBodyBinary(u *CURL, data string) {
 		// strings.Split(data, fmt.Sprintf(`\r\n--%s\r\n`, boundary))
 		// log.Println(data)
 	default:
-		u.Body.SetIOBody(data)
+		u.Body = bytes.NewBufferString(data)
 	}
 
 }
@@ -235,7 +236,7 @@ func parseHeader(u *CURL, soption string) {
 		u.Cookies = GetRawCookies(value, "")
 		u.CookieJar.SetCookies(u.ParsedURL, u.Cookies)
 	case "content-type":
-		u.Body.SetPrefix(value)
+		u.ContentType = value
 	default:
 		u.Header.Add(key, value)
 	}

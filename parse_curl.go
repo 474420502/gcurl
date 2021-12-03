@@ -1,6 +1,7 @@
 package gcurl
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
@@ -18,10 +19,13 @@ type CURL struct {
 	Header    http.Header
 	CookieJar http.CookieJar
 	Cookies   []*http.Cookie
-	Body      *requests.Body
-	Auth      *requests.BasicAuth
-	Timeout   int // second
-	Insecure  bool
+
+	ContentType string
+	Body        *bytes.Buffer
+
+	Auth     *requests.BasicAuth
+	Timeout  int // second
+	Insecure bool
 
 	// ITask   string
 	// Crontab string
@@ -36,7 +40,7 @@ func New() *CURL {
 
 	u.Header = make(http.Header)
 	u.CookieJar, _ = cookiejar.New(nil)
-	u.Body = requests.NewBody()
+	u.Body = bytes.NewBuffer(nil)
 	u.Timeout = 30
 
 	return u
@@ -101,6 +105,7 @@ func (curl *CURL) CreateTemporary(ses *requests.Session) *requests.Temporary {
 		wf = ses.Delete(curl.ParsedURL.String())
 	}
 
+	wf.SetContentType(curl.ContentType)
 	wf.SetBody(curl.Body)
 	return wf
 }
