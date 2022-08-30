@@ -22,6 +22,7 @@ type CURL struct {
 
 	ContentType string
 	Body        *bytes.Buffer
+	FormData    http.Header
 
 	Auth     *requests.BasicAuth
 	Timeout  int // second
@@ -39,6 +40,7 @@ func New() *CURL {
 	u.Insecure = false
 
 	u.Header = make(http.Header)
+	u.FormData = make(http.Header)
 	u.CookieJar, _ = cookiejar.New(nil)
 	u.Body = bytes.NewBuffer(nil)
 	u.Timeout = 30

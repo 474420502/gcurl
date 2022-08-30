@@ -22,6 +22,10 @@ func init() {
 		{"-d", 10, parseBodyASCII, &extract{re: "^-d +(.+)", execute: extractData}},
 		{"-u", 15, parseUser, &extract{re: "^-u +(.+)", execute: extractData}},
 		{"-k", 15, parseInsecure, nil},
+		{"--request", 10, parseRequestMethod, nil},
+		// Form
+		{"--form", 10, parseForm, nil},
+		{"-F", 10, parseForm, nil},
 		// Body
 		{"--data", 10, parseBodyASCII, &extract{re: "--data +(.+)", execute: extractData}},
 		{"--data-urlencode", 10, parseBodyURLEncode, &extract{re: "--data-urlencode +(.+)", execute: extractData}},
@@ -143,6 +147,12 @@ func parseOptX(u *CURL, soption string) {
 	u.Method = method
 }
 
+func parseRequestMethod(u *CURL, soption string) {
+	matches := regexp.MustCompile("--request +(.+)").FindStringSubmatch(soption)
+	method := strings.Trim(matches[1], "'")
+	u.Method = method
+}
+
 func parseBodyURLEncode(u *CURL, data string) {
 	if u.Method != "" {
 		u.Method = "POST"
@@ -241,4 +251,11 @@ func parseHeader(u *CURL, soption string) {
 		u.Header.Add(key, value)
 	}
 
+}
+
+func parseForm(u *CURL, soption string) {
+	matches := regexp.MustCompile(`['"]([^:]+)=["']([^'"]+)['"]['"]`).FindAllStringSubmatch(soption, 1)[0]
+	key := matches[1]
+	value := matches[2]
+	u.FormData[key] = []string{value}
 }
