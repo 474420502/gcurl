@@ -1,4 +1,4 @@
-module github.com/474420502/gcurl
+module github.com/muhramadhan/gcurl
 
 go 1.16
 
