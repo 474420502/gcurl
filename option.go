@@ -154,7 +154,7 @@ func parseRequestMethod(u *CURL, soption string) {
 }
 
 func parseBodyURLEncode(u *CURL, data string) {
-	if u.Method != "" {
+	if u.Method == "" {
 		u.Method = "POST"
 	}
 
@@ -163,7 +163,7 @@ func parseBodyURLEncode(u *CURL, data string) {
 }
 
 func parseBodyRaw(u *CURL, data string) {
-	if u.Method != "" {
+	if u.Method == "" {
 		u.Method = "POST"
 	}
 
@@ -172,7 +172,7 @@ func parseBodyRaw(u *CURL, data string) {
 }
 
 func parseBodyASCII(u *CURL, data string) {
-	if u.Method != "" {
+	if u.Method == "" {
 		u.Method = "POST"
 	}
 
