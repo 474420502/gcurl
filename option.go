@@ -169,7 +169,7 @@ func parseBodyRaw(u *CURL, data string) {
 	}
 
 	dst := &bytes.Buffer{}
-	_ := json.Compact(dst, []byte(data))
+	_ = json.Compact(dst, []byte(data))
 	strBody := dst.String()
 
 	u.ContentType = requests.TypeURLENCODED
