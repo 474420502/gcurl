@@ -2,6 +2,7 @@ package gcurl
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -167,8 +168,13 @@ func parseBodyRaw(u *CURL, data string) {
 		u.Method = "POST"
 	}
 
+	dst := &bytes.Buffer{}
+	_ := json.Compact(dst, []byte(data))
+	strBody := dst.String()
+
 	u.ContentType = requests.TypeURLENCODED
-	u.Body = bytes.NewBufferString(data)
+	u.Body = bytes.NewBufferString(strBody)
+
 }
 
 func parseBodyASCII(u *CURL, data string) {
