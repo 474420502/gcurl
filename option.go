@@ -2,7 +2,6 @@ package gcurl
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -28,11 +27,11 @@ func init() {
 		{"--form", 10, parseForm, nil},
 		{"-F", 10, parseForm, nil},
 		// Body
-		{"--data", 10, parseBodyASCII, &extract{re: "--data +(.+)", execute: extractData}},
-		{"--data-urlencode", 10, parseBodyURLEncode, &extract{re: "--data-urlencode +(.+)", execute: extractData}},
+		{"--data", 10, parseBodyASCII, &extract{re: "--data-raw +([\\S\\s]+)", execute: extractData}},
+		{"--data-urlencode", 10, parseBodyURLEncode, &extract{re: "--data-raw +([\\S\\s]+)", execute: extractData}},
 		{"--data-binary", 10, parseBodyBinary, &extract{re: "--data-binary +(\\${0,1}.+)", execute: extractData}},
-		{"--data-ascii", 10, parseBodyASCII, &extract{re: "--data-ascii +(.+)", execute: extractData}},
-		{"--data-raw", 10, parseBodyRaw, &extract{re: "--data-raw +(.+)", execute: extractData}},
+		{"--data-ascii", 10, parseBodyASCII, &extract{re: "--data-raw +([\\S\\s]+)", execute: extractData}},
+		{"--data-raw", 10, parseBodyRaw, &extract{re: "--data-raw +([\\S\\s]+)", execute: extractData}},
 		//"--"
 		{"--header", 10, parseHeader, nil},
 		{"--insecure", 15, parseInsecure, nil},
@@ -168,12 +167,8 @@ func parseBodyRaw(u *CURL, data string) {
 		u.Method = "POST"
 	}
 
-	dst := &bytes.Buffer{}
-	_ = json.Compact(dst, []byte(data))
-	strBody := dst.String()
-
 	u.ContentType = requests.TypeURLENCODED
-	u.Body = bytes.NewBufferString(strBody)
+	u.Body = bytes.NewBufferString(data)
 
 }
 
@@ -251,8 +246,10 @@ func parseHeader(u *CURL, soption string) {
 	case "cookie":
 		u.Cookies = GetRawCookies(value, "")
 		u.CookieJar.SetCookies(u.ParsedURL, u.Cookies)
+		u.Header.Add(key, value)
 	case "content-type":
 		u.ContentType = value
+		u.Header.Add(key, value)
 	default:
 		u.Header.Add(key, value)
 	}
