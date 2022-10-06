@@ -258,6 +258,9 @@ func parseHeader(u *CURL, soption string) {
 
 func parseForm(u *CURL, soption string) {
 	matches := regexp.MustCompile(`['"]([^:]+)=["']([^'"]+)['"]['"]`).FindAllStringSubmatch(soption, 1)[0]
+	if len(matches) < 2 {
+		return
+	}
 	key := matches[1]
 	value := matches[2]
 	u.FormData[key] = []string{value}
