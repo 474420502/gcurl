@@ -237,7 +237,7 @@ func parseBodyBinary(u *CURL, data string) {
 }
 
 func parseHeader(u *CURL, soption string) {
-	matches := regexp.MustCompile(`['"]([^:]+): ([^'"]+)['"]`).FindAllStringSubmatch(soption, 1)[0]
+	matches := regexp.MustCompile(`['"]([^:]+): (.+)['"]`).FindAllStringSubmatch(soption, 1)[0]
 	key := matches[1]
 	lkey := strings.ToLower(key)
 	value := matches[2]
