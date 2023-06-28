@@ -55,7 +55,7 @@ func (curl *CURL) String() string {
 }
 
 // Execute 直接执行curlbash
-func Execute(curlbash string) (requests.IResponse, error) {
+func Execute(curlbash string) (*requests.Response, error) {
 	return Parse(curlbash).CreateTemporary(nil).Execute()
 }
 
