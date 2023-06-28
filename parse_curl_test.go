@@ -153,7 +153,7 @@ func TestPostFile(t *testing.T) {
 }
 
 func TestCurlPaserHttp(t *testing.T) {
-	surl := ` http://httpbin.org/get  -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
+	surl := ` http://httpbin.org/get -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
 	curl := Parse(surl)
 	resp, err := curl.CreateTemporary(curl.CreateSession()).Execute()
 	if err != nil {
@@ -168,6 +168,24 @@ func TestCurlPaserHttp(t *testing.T) {
 		t.Error(string(resp.Content()))
 	}
 
+	log.Println(resp.Json())
+	// resp.Json()
+}
+
+func TestCurlPaserHttpBody(t *testing.T) {
+	surl := ` http://0.0.0.0/get/body-compressed  -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
+	curl := Parse(surl)
+	tp := curl.CreateTemporary(curl.CreateSession())
+	resp, err := tp.TestExecute(gserver)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if string(resp.Content()) != "hello compress" {
+		t.Error(resp.Content())
+	}
+
+	// resp.Json()
 }
 
 func TestCurlErrorCase1(t *testing.T) {
