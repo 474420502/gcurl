@@ -13,8 +13,9 @@ go get github.com/474420502/gcurl
 
 # Example
 
-* example1:
+* Example1: Basic GET request with headers
 
+This example demonstrates how to parse a cURL command for a GET request with custom headers, create a session, and execute the request.
 ```go
 	surl := ` http://httpbin.org/get  -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
 	curl := gcurl.Parse(surl)
@@ -42,7 +43,9 @@ go get github.com/474420502/gcurl
 	// }
 ```
 
-* example2:
+* example2: GET request with cookies
+
+This example demonstrates how to parse a cURL command for a GET request with custom headers and cookies, create a session, and execute the request.
 
 ```go
 	scurl := `curl 'http://httpbin.org/get' 
@@ -77,7 +80,9 @@ go get github.com/474420502/gcurl
 	//   }
 ```
 
-* example3:
+* example3: GET request with path parameters
+
+This example demonstrates how to parse a cURL command for a GET request with custom headers and path parameters, set the path parameter value, and execute the request.
 
 ```go
 	c := gcurl.Parse(`curl -X GET "http://httpbin.org/anything/1" -H "accept: application/json"`)
