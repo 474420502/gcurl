@@ -56,6 +56,7 @@ func TestMethod(t *testing.T) {
 func TestParseCURL(t *testing.T) {
 
 	scurls := []string{
+		`curl --header "Authorization: Bearer token_with_space here" https://example.com`,
 		`curl 'https://saluton.cizion.com/livere' -H 'Referer: http://www.yxdm.tv/resource/9135.html' -H 'Origin: http://www.yxdm.tv' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36' -H 'Content-Type: application/json' --data-binary '{"type":"livere_pv","action":"loading","extra":{"useEagerLoading":false},"title":"哥布林杀手无删减版无暗牧无圣光 - 百度云网盘 - 全集动画下载 - 怡萱动漫","url":"http://www.yxdm.tv/resource/9135.html","consumer_seq":1020,"livere_seq":38141,"livere_referer":"www.yxdm.tv/resource/9135.html","sender":"tower","uuid":"e6213a42-41d0-4637-ad52-ccb48ba9cef1"}' --compressed`,
 		`curl 'https://saluton.cizion.com/livere' -X OPTIONS -H 'Access-Control-Request-Method: POST' -H 'Origin: http://www.yxdm.tv' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36' -H 'Access-Control-Request-Headers: content-type' --compressed`,
 		`curl 'https://www.google-analytics.com/r/collect' --socks5 http:127.0.0.1:7070 -H 'Referer: https://stackoverflow.com/questions/42754307/how-to-unescape-quoted-octal-strings-in-golang' -H 'Origin: https://stackoverflow.com' -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36' -H 'Content-Type: text/plain;charset=UTF-8' --data-binary 'v=1&_v=j72&a=1104564653&t=pageview&_s=1&dl=https%3A%2F%2Fstackoverflow.com%2Fquestions%2F42754307%2Fhow-to-unescape-quoted-octal-strings-in-golang&ul=en-us&de=UTF-8&dt=go%20-%20How%20to%20unescape%20quoted%20octal%20strings%20in%20Golang%3F%20-%20Stack%20Overflow&sd=24-bit&sr=1476x830&vp=1412x268&je=0&_u=QACAAEAB~&jid=1066047028&gjid=2019145233&cid=572307198.1525508485&tid=UA-108242619-1&_gid=1131483813.1542548817&_r=1&cd2=%7Cstring%7Cgo%7Cescaping%7C&cd3=Questions%2FShow&z=26020125' --compressed`,
@@ -359,4 +360,20 @@ func TestReadmeEg3(t *testing.T) {
 	if !regexp.MustCompile("http://httpbin.org/anything/100").Match(resp.Content()) {
 		t.Error(string(resp.Content()))
 	}
+}
+
+func TestCaseLimit(t *testing.T) {
+
+	c := Parse(`curl --limit-rate 200K -O https://httpbin.org/large-file.zip`)
+	tp := c.Temporary()
+
+	resp, err := tp.Execute()
+	if err != nil {
+		t.Error(err)
+	}
+	log.Println(string(resp.Content()))
+	if !regexp.MustCompile("http://httpbin.org/anything/100").Match(resp.Content()) {
+		t.Error(string(resp.Content()))
+	}
+
 }

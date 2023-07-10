@@ -149,23 +149,23 @@ func Parse(scurl string) (cURL *CURL) {
 		curl.ParsedURL = purl
 	}
 
-	mathches := regexp.MustCompile(
-		`--data-binary +\$.+--\\r\\n'([\n \t]|$)|`+
+	matches := regexp.MustCompile(
+		`-(?:O|L|I|s|k|C|4|6)([\n \t]|$)|`+ // 短格式无参数设置特例匹配（优先识别）
+			`--(?:remote-name|location|head|silent|insecure|continue-at|ipv4|ipv6|compressed)([\n \t]|$)|`+ // 长格式无参数设置匹配
+			`(?:http|https)://[^\n\s]+([\n \t]|$)|`+ // 匹配 http:// 和 https:// 的内容
+			`--data-binary +\$.+--\\r\\n'([\n \t]|$)|`+
 			`--[^ ]+ +'[^']+'([\n \t]|$)|`+
-
 			`--[^ ]+ +"[^"]+"([\n \t]|$)|`+
 			`--[^ ]+ +[^ ]+|`+
-
 			`-[A-Za-z] +'[^']+'([\n \t]|$)|`+
 			`-[A-Za-z] +"[^"]+"([\n \t]|$)|`+
 			`-[A-Za-z] +[^ ]+|`+
-
 			`[\n \t]'[^']+'([\n \t]|$)|`+
 			`[\n \t]"[^"]+"([\n \t]|$)|`+
 			`--[a-z]+ {0,}`,
 	).FindAllString(scurl, -1)
 
-	for _, m := range mathches {
+	for _, m := range matches {
 		m = strings.Trim(m, " \n\t")
 		switch v := m[0]; v {
 		case '\'':
