@@ -1,6 +1,6 @@
 github.com/474420502/random v0.4.1 h1:HUUyLXRWMijVb7CJoEC16f0aFQOW25Lkr80Mut6PoKU=
-github.com/474420502/requests v1.35.0 h1:tMKphcetGWmWP6vyKnwHEtcU8NmUVw+uOzWQ8EEI4bk=
-github.com/474420502/requests v1.35.0/go.mod h1:r1Uwbbq/t3Cn95VOfgJjZmD7sfwp+gjldq/zDncNYRc=
+github.com/474420502/requests v1.39.1 h1:IJPOALagvseZiR7w0MidDjA7iyfRYV7F16lbMsIft8s=
+github.com/474420502/requests v1.39.1/go.mod h1:r1Uwbbq/t3Cn95VOfgJjZmD7sfwp+gjldq/zDncNYRc=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/elazarl/goproxy v0.0.0-20210801061803-8e322dfb79c4 h1:lS3P5Nw3oPO05Lk2gFiYUOL3QPaH+fRoI1wFOc4G1UY=

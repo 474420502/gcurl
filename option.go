@@ -3,7 +3,6 @@ package gcurl
 import (
 	"bytes"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -18,7 +17,6 @@ func init() {
 		{"-H", 10, parseHeader, nil},
 		{"-X", 10, parseOptX, nil},
 		{"-A", 15, parseUserAgent, &extract{re: "^-A +(.+)", execute: extractData}},
-		{"-I", 15, parseOptI, nil},
 		{"-d", 10, parseBodyASCII, &extract{re: "^-d +(.+)", execute: extractData}},
 		{"-u", 15, parseUser, &extract{re: "^-u +(.+)", execute: extractData}},
 		{"-k", 15, parseInsecure, nil},
@@ -88,9 +86,6 @@ func judgeOptions(u *CURL, soption string) *parseFunction {
 		return oe.BuildFunction(u, soption)
 	}
 
-	if soption != "--compressed" {
-		log.Println(soption, "this option is invalid.")
-	}
 	return nil
 }
 
@@ -131,10 +126,6 @@ func parseUser(u *CURL, soption string) {
 
 func parseUserAgent(u *CURL, value string) {
 	u.Header.Add("User-Agent", value)
-}
-
-func parseOptI(u *CURL, soption string) {
-	u.Method = "HEAD"
 }
 
 func parseOptX(u *CURL, soption string) {

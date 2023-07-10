@@ -3,6 +3,7 @@ package gcurl
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -115,13 +116,31 @@ func (curl *CURL) Temporary() *requests.Temporary {
 	return curl.CreateTemporary(curl.CreateSession())
 }
 
+type MatchGroup int
+
+const (
+	HTTPHTTPS MatchGroup = iota
+	ShortNoArg
+	LongNoArgSpecial
+	DataBinary
+	LongArgQuotes
+	LongArgDoubleQuotes
+	LongArgNoQuotes
+	ShortArgQuotes
+	ShortArgDoubleQuotes
+	ShortArgNoQuotes
+	NewlineQuotes
+	NewlineDoubleQuotes
+	LongArgNoArg
+)
+
 // Parse curl_bash
-func Parse(scurl string) (cURL *CURL) {
+func Parse(scurl string) (curl *CURL) {
 	executor := newPQueueExecute()
-	curl := New()
 
 	if len(scurl) <= 4 {
-		panic("scurl error:" + scurl)
+		log.Println("scurl error:" + scurl)
+		return nil
 	}
 
 	if scurl[0] == '"' && scurl[len(scurl)-1] == '"' {
@@ -133,64 +152,58 @@ func Parse(scurl string) (cURL *CURL) {
 	scurl = strings.TrimSpace(scurl)
 	scurl = strings.TrimLeft(scurl, "curl")
 
-	pattern := regexp.MustCompile(
-		`(-(?:O|L|I|s|k|C|4|6)([\n \t]|$))|` +
-			`(--(?:remote-name|location|head|silent|insecure|continue-at|ipv4|ipv6|compressed)([\n \t]|$))|` +
-			`(http.+(?:[\n \t]|$))|` +
-			`(--data-binary +\$.+--\\r\\n'(?:[\n \t]|$))|` +
-			`(--[^ ]+ +'[^']+'(?:[\n \t]|$))|` +
-			`(--[^ ]+ +"[^"]+"(?:[\n \t]|$))|` +
-			`(--[^ ]+ +[^ ]+)|` +
-			`(-[A-Za-z] +'[^']+'(?:[\n \t]|$))|` +
-			`(-[A-Za-z] +"[^"]+"(?:[\n \t]|$))|` +
-			`(-[A-Za-z] +[^ ]+)|` +
-			`([\n \t]'[^']+'(?:[\n \t]|$))|` +
-			`([\n \t]"[^"]+"(?:[\n \t]|$))|` +
-			`(--[a-z]+ {0,})`,
-	)
-	matches := pattern.FindAllStringSubmatch(scurl, -1)
+	pattern := `((?:http|https)://[^\n\s]+(?:[\n \t]|$))|` +
+		`(-(?:O|L|I|s|k|C|4|6)(?:[\n \t]|$))|` +
+		`(--(?:remote-name|location|head|silent|insecure|continue-at|ipv4|ipv6|compressed)(?:[\n \t]|$))|` +
+		`(--data-binary +\$.+--\\r\\n'(?:[\n \t]|$))|` +
+		`(--[^ ]+ +'[^']+'(?:[\n \t]|$))|` +
+		`(--[^ ]+ +"[^"]+"(?:[\n \t]|$))|` +
+		`(--[^ ]+ +[^ ]+)|` +
+		`(-[A-Za-z] +'[^']+'(?:[\n \t]|$))|` +
+		`(-[A-Za-z] +"[^"]+"(?:[\n \t]|$))|` +
+		`(-[A-Za-z] +[^ ]+)|` +
+		`([\n \t]'[^']+'(?:[\n \t]|$))|` +
+		`([\n \t]"[^"]+"(?:[\n \t]|$))|` +
+		`(--[a-z]+ {0,})`
 
-	groupNames := map[int]string{
-		1:  "short_no_arg",
-		2:  "long_no_arg",
-		3:  "http_https",
-		4:  "data_binary",
-		5:  "long_arg_quotes",
-		6:  "long_arg_double_quotes",
-		7:  "long_arg_no_quotes",
-		8:  "short_arg_quotes",
-		9:  "short_arg_double_quotes",
-		10: "short_arg_no_quotes",
-		11: "newline_quotes",
-		12: "newline_double_quotes",
-		13: "long_arg_no_arg",
+	re := regexp.MustCompile(pattern)
+	matches := re.FindAllStringSubmatch(scurl, -1)
+	if len(matches) != 0 {
+		curl = New()
 	}
 
-	for _, submatches := range matches {
-		matchedGroup := ""
-		matchedContent := ""
-		for i, m := range submatches[1:] {
-			if m != "" {
-				matchedGroup = groupNames[i+1]
-				matchedContent = m
-				break
+	for _, match := range matches {
+		for i, matchedContent := range match[1:] {
+			// 忽略空字符串
+			if matchedContent == "" {
+				continue
 			}
-		}
-		matchedContent = strings.Trim(matchedContent, " \n\t")
-		switch matchedGroup {
-		case "http_https", "newline_quotes", "newline_double_quotes":
-			purl, err := url.Parse(strings.Trim(matchedContent, `"'`))
-			if err != nil {
-				panic(err)
-			}
-			curl.ParsedURL = purl
-		case "short_no_arg", "long_no_arg", "data_binary",
-			"long_arg_quotes", "long_arg_double_quotes", "long_arg_no_quotes",
-			"short_arg_quotes", "short_arg_double_quotes", "short_arg_no_quotes",
-			"long_arg_no_arg":
-			exec := judgeOptions(curl, matchedContent)
-			if exec != nil {
-				executor.Push(exec)
+			matchedContent = strings.Trim(matchedContent, " \n\t")
+
+			// 使用 MatchGroup 常量替换 matchedGroup 字符串
+			switch MatchGroup(i) {
+			case HTTPHTTPS, NewlineQuotes, NewlineDoubleQuotes:
+				purl, err := url.Parse(strings.Trim(matchedContent, `"'`))
+				if err != nil {
+					panic(err)
+				}
+				curl.ParsedURL = purl
+
+			case DataBinary,
+				LongArgQuotes, LongArgDoubleQuotes, LongArgNoQuotes,
+				ShortArgQuotes, ShortArgDoubleQuotes, ShortArgNoQuotes,
+				LongArgNoArg:
+				exec := judgeOptions(curl, matchedContent)
+				if exec != nil {
+					executor.Push(exec)
+				}
+			case ShortNoArg, LongNoArgSpecial:
+				switch matchedContent {
+				case "-I", "--head":
+					curl.Method = "HEAD"
+				default:
+					log.Println(matchedContent, "this option is invalid.")
+				}
 			}
 		}
 	}
