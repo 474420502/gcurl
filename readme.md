@@ -4,6 +4,15 @@
 * Easy to transform curl bash to golang code
 * requests(inherit from curl bash) can add setting(config,cookie,header) and request url by you
 
+# Installation
+
+* To install the library, run the following command:
+```bash
+go get github.com/474420502/gcurl
+```
+
+# Example
+
 * example1:
 
 ```go
