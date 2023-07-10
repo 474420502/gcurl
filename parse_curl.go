@@ -133,55 +133,62 @@ func Parse(scurl string) (cURL *CURL) {
 	scurl = strings.TrimSpace(scurl)
 	scurl = strings.TrimLeft(scurl, "curl")
 
-	if strings.HasPrefix(scurl, "http") {
-		var parseurl []rune
-		for _, v := range scurl {
-			if v == ' ' {
-				break
-			}
-			parseurl = append(parseurl, v)
-		}
+	pattern := regexp.MustCompile(
+		`(-(?:O|L|I|s|k|C|4|6)([\n \t]|$))|` +
+			`(--(?:remote-name|location|head|silent|insecure|continue-at|ipv4|ipv6|compressed)([\n \t]|$))|` +
+			`(http.+(?:[\n \t]|$))|` +
+			`(--data-binary +\$.+--\\r\\n'(?:[\n \t]|$))|` +
+			`(--[^ ]+ +'[^']+'(?:[\n \t]|$))|` +
+			`(--[^ ]+ +"[^"]+"(?:[\n \t]|$))|` +
+			`(--[^ ]+ +[^ ]+)|` +
+			`(-[A-Za-z] +'[^']+'(?:[\n \t]|$))|` +
+			`(-[A-Za-z] +"[^"]+"(?:[\n \t]|$))|` +
+			`(-[A-Za-z] +[^ ]+)|` +
+			`([\n \t]'[^']+'(?:[\n \t]|$))|` +
+			`([\n \t]"[^"]+"(?:[\n \t]|$))|` +
+			`(--[a-z]+ {0,})`,
+	)
+	matches := pattern.FindAllStringSubmatch(scurl, -1)
 
-		purl, err := url.Parse(string(parseurl))
-		if err != nil {
-			panic(err)
-		}
-		curl.ParsedURL = purl
+	groupNames := map[int]string{
+		1:  "short_no_arg",
+		2:  "long_no_arg",
+		3:  "http_https",
+		4:  "data_binary",
+		5:  "long_arg_quotes",
+		6:  "long_arg_double_quotes",
+		7:  "long_arg_no_quotes",
+		8:  "short_arg_quotes",
+		9:  "short_arg_double_quotes",
+		10: "short_arg_no_quotes",
+		11: "newline_quotes",
+		12: "newline_double_quotes",
+		13: "long_arg_no_arg",
 	}
 
-	matches := regexp.MustCompile(
-		`-(?:O|L|I|s|k|C|4|6)([\n \t]|$)|`+ // 短格式无参数设置特例匹配（优先识别）
-			`--(?:remote-name|location|head|silent|insecure|continue-at|ipv4|ipv6|compressed)([\n \t]|$)|`+ // 长格式无参数设置匹配
-			`(?:http|https)://[^\n\s]+([\n \t]|$)|`+ // 匹配 http:// 和 https:// 的内容
-			`--data-binary +\$.+--\\r\\n'([\n \t]|$)|`+
-			`--[^ ]+ +'[^']+'([\n \t]|$)|`+
-			`--[^ ]+ +"[^"]+"([\n \t]|$)|`+
-			`--[^ ]+ +[^ ]+|`+
-			`-[A-Za-z] +'[^']+'([\n \t]|$)|`+
-			`-[A-Za-z] +"[^"]+"([\n \t]|$)|`+
-			`-[A-Za-z] +[^ ]+|`+
-			`[\n \t]'[^']+'([\n \t]|$)|`+
-			`[\n \t]"[^"]+"([\n \t]|$)|`+
-			`--[a-z]+ {0,}`,
-	).FindAllString(scurl, -1)
-
-	for _, m := range matches {
-		m = strings.Trim(m, " \n\t")
-		switch v := m[0]; v {
-		case '\'':
-			purl, err := url.Parse(m[1 : len(m)-1])
+	for _, submatches := range matches {
+		matchedGroup := ""
+		matchedContent := ""
+		for i, m := range submatches[1:] {
+			if m != "" {
+				matchedGroup = groupNames[i+1]
+				matchedContent = m
+				break
+			}
+		}
+		matchedContent = strings.Trim(matchedContent, " \n\t")
+		switch matchedGroup {
+		case "http_https", "newline_quotes", "newline_double_quotes":
+			purl, err := url.Parse(strings.Trim(matchedContent, `"'`))
 			if err != nil {
 				panic(err)
 			}
 			curl.ParsedURL = purl
-		case '"':
-			purl, err := url.Parse(m[1 : len(m)-1])
-			if err != nil {
-				panic(err)
-			}
-			curl.ParsedURL = purl
-		case '-':
-			exec := judgeOptions(curl, m)
+		case "short_no_arg", "long_no_arg", "data_binary",
+			"long_arg_quotes", "long_arg_double_quotes", "long_arg_no_quotes",
+			"short_arg_quotes", "short_arg_double_quotes", "short_arg_no_quotes",
+			"long_arg_no_arg":
+			exec := judgeOptions(curl, matchedContent)
 			if exec != nil {
 				executor.Push(exec)
 			}
