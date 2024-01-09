@@ -4,3 +4,7 @@
 
 #vscode
 debug.test
+
+vendor
+
+__debug_bin*
