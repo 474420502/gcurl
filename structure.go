@@ -169,15 +169,15 @@ type parseQueue []*parseFunction
 
 // parseFunction 优先执行参数
 type parseFunction struct {
-	ExecuteFunction func(u *CURL, soption string)
+	ExecuteFunction func(u *CURL, soption string) error
 	ParamCURL       *CURL
 	ParamData       string
 	Priority        int
 }
 
 // Execute 执行 函数
-func (pf *parseFunction) Execute() {
-	pf.ExecuteFunction(pf.ParamCURL, pf.ParamData)
+func (pf *parseFunction) Execute() error {
+	return pf.ExecuteFunction(pf.ParamCURL, pf.ParamData)
 }
 
 // Swap 实现sort.Iterface

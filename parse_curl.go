@@ -57,7 +57,11 @@ func (curl *CURL) String() string {
 
 // Execute 直接执行curlbash
 func Execute(curlbash string) (*requests.Response, error) {
-	return Parse(curlbash).CreateTemporary(nil).Execute()
+	c, err := Parse(curlbash)
+	if err != nil {
+		return nil, err
+	}
+	return c.CreateTemporary(nil).Execute()
 }
 
 // CreateSession 创建Session
@@ -135,12 +139,13 @@ const (
 )
 
 // Parse curl_bash
-func Parse(scurl string) (curl *CURL) {
+func Parse(scurl string) (curl *CURL, err error) {
 	executor := newPQueueExecute()
 
 	if len(scurl) <= 4 {
-		log.Println("scurl error:" + scurl)
-		return nil
+		err = fmt.Errorf("scurl error: %s", scurl)
+		log.Println(err)
+		return nil, err
 	}
 
 	if scurl[0] == '"' && scurl[len(scurl)-1] == '"' {
@@ -185,7 +190,8 @@ func Parse(scurl string) (curl *CURL) {
 			case HTTPHTTPS, NewlineQuotes, NewlineDoubleQuotes:
 				purl, err := url.Parse(strings.Trim(matchedContent, `"'`))
 				if err != nil {
-					panic(err)
+					log.Println(err)
+					return nil, err
 				}
 				curl.ParsedURL = purl
 
@@ -210,12 +216,14 @@ func Parse(scurl string) (curl *CURL) {
 
 	for executor.Len() > 0 {
 		exec := executor.Pop()
-		exec.Execute()
+		if err = exec.Execute(); err != nil {
+			return nil, err
+		}
 	}
 
 	if curl.Method == "" {
 		curl.Method = "GET"
 	}
 
-	return curl
+	return curl, nil
 }

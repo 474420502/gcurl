@@ -13,31 +13,51 @@ func init() {
 func TestMethod(t *testing.T) {
 	var scurl string
 	scurl = `curl -X PUT "http://httpbin.org/put"`
-	_, err := Parse(scurl).CreateTemporary(nil).Execute()
+	_curl, err := Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = _curl.CreateTemporary(nil).Execute()
 	if err != nil {
 		t.Error(err)
 	}
 
 	scurl = `curl -X HEAD "http://httpbin.org/head"`
-	_, err = Parse(scurl).CreateTemporary(nil).Execute()
+	_curl, err = Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = _curl.CreateTemporary(nil).Execute()
 	if err != nil {
 		t.Error(err)
 	}
 
 	scurl = `curl -X patch "http://httpbin.org/patch"`
-	_, err = Parse(scurl).CreateTemporary(nil).Execute()
+	_curl, err = Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = _curl.CreateTemporary(nil).Execute()
 	if err != nil {
 		t.Error(err)
 	}
 
 	scurl = `curl -X options "http://httpbin.org/options"`
-	_, err = Parse(scurl).CreateTemporary(nil).Execute()
+	_curl, err = Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = _curl.CreateTemporary(nil).Execute()
 	if err != nil {
 		t.Error(err)
 	}
 
 	scurl = `curl -X DELETE "http://httpbin.org/DELETE"`
-	_, err = Parse(scurl).CreateTemporary(nil).Execute()
+	_curl, err = Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = _curl.CreateTemporary(nil).Execute()
 	if err != nil {
 		t.Error(err)
 	}
@@ -66,7 +86,10 @@ func TestParseCURL(t *testing.T) {
 	// Access-Control-Request-Method 方法告诉 --data-binary 默认是POST
 
 	for _, scurl := range scurls {
-		curl := Parse(scurl)
+		curl, err := Parse(scurl)
+		if err != nil {
+			t.Error(err)
+		}
 
 		if curl.Method == "" {
 			t.Error("curl.Method is nil")
@@ -77,11 +100,14 @@ func TestParseCURL(t *testing.T) {
 
 func TestCurlTimeout(t *testing.T) {
 	scurl := `curl 'https://javtc123test.com/' --connect-timeout 1 -H 'authority: appgrowing.cn' -H 'cache-control: max-age=0' -H 'upgrade-insecure-requests: 1' -H 'user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1' -H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8' -H 'accept-encoding: gzip, deflate, br' -H 'accept-language: zh' -H 'cookie: _ga=GA1.2.1371058419.1533104518; _gid=GA1.2.896241740.1543307916; _gat_gtag_UA_4002880_19=1' -H 'if-none-match: W/"5bf7a0a9-ca6"' -H 'if-modified-since: Fri, 23 Nov 2018 06:39:37 GMT'`
-	curl := Parse(scurl)
+	curl, err := Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
 
 	ses := curl.CreateSession()
 	wf := curl.CreateTemporary(ses)
-	_, err := wf.Execute()
+	_, err = wf.Execute()
 	if err == nil {
 		t.Error("not timeout")
 	}
@@ -89,14 +115,17 @@ func TestCurlTimeout(t *testing.T) {
 
 func TestCurlWordWrap(t *testing.T) {
 	scurl := `curl 'http://httpbin.org/get' 
-	--connect-timeout 1 
+	--connect-timeout 5 
 	-H 'authority: appgrowing.cn'
 	-H 'cache-control: max-age=0'
 	-H 'upgrade-insecure-requests: 1'
 	-H 'user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1'
 	-H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
 	-H 'accept-encoding: gzip, deflate, br' -H 'accept-language: zh' -H 'cookie: _ga=GA1.2.1371058419.1533104518; _gid=GA1.2.896241740.1543307916; _gat_gtag_UA_4002880_19=1' -H 'if-none-match: W/"5bf7a0a9-ca6"' -H 'if-modified-since: Fri, 23 Nov 2018 06:39:37 GMT'`
-	curl := Parse(scurl)
+	curl, err := Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
 
 	ses := curl.CreateSession()
 	wf := curl.CreateTemporary(ses)
@@ -114,7 +143,10 @@ func TestCurlWordWrap(t *testing.T) {
 	}
 
 	scurl = `curl --header "Authorization: Bearer token_with_space" http://httpbin.org/bearer`
-	curl = Parse(scurl)
+	curl, err = Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
 
 	ses = curl.CreateSession()
 	wf = curl.CreateTemporary(ses)
@@ -144,7 +176,10 @@ func TestCurlTabCase(t *testing.T) {
 	-H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9' 
 	-H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9' 
 	--compressed --insecure`
-	curl := Parse(scurl)
+	curl, err := Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
 
 	ses := curl.CreateSession()
 	wf := curl.CreateTemporary(ses)
@@ -161,7 +196,10 @@ func TestCurlTabCase(t *testing.T) {
 
 func TestPostFile(t *testing.T) {
 	surl := `curl -X POST "http://httpbin.org/post" --data "@./tests/postfile.txt"`
-	curl := Parse(surl)
+	curl, err := Parse(surl)
+	if err != nil {
+		t.Error(err)
+	}
 	resp, err := curl.CreateTemporary(curl.CreateSession()).Execute()
 	if err != nil {
 		t.Error(err)
@@ -173,7 +211,10 @@ func TestPostFile(t *testing.T) {
 
 func TestCurlPaserHttp(t *testing.T) {
 	surl := ` http://httpbin.org/get -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
-	curl := Parse(surl)
+	curl, err := Parse(surl)
+	if err != nil {
+		t.Error(err)
+	}
 	resp, err := curl.CreateTemporary(curl.CreateSession()).Execute()
 	if err != nil {
 		t.Error(err)
@@ -193,7 +234,10 @@ func TestCurlPaserHttp(t *testing.T) {
 
 func TestCurlPaserHttpBody(t *testing.T) {
 	surl := ` http://0.0.0.0/get/body-compressed  -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
-	curl := Parse(surl)
+	curl, err := Parse(surl)
+	if err != nil {
+		t.Error(err)
+	}
 	tp := curl.CreateTemporary(curl.CreateSession())
 	resp, err := tp.TestExecute(gserver)
 	if err != nil {
@@ -222,7 +266,11 @@ func TestCurlErrorCase1(t *testing.T) {
 	--data-binary $'------WebKitFormBoundary3bCA1lzvhj4kBR4Q\r\nContent-Disposition: form-data; name="keyType"\r\n\r\n0\r\n------WebKitFormBoundary3bCA1lzvhj4kBR4Q\r\nContent-Disposition: form-data; name="body"\r\n\r\n{"deviceType":7,"requestSource":"WEB","iNetType":5}\r\n------WebKitFormBoundary3bCA1lzvhj4kBR4Q--\r\n' \
 	--compressed`
 
-	curl := Parse(xxxxapi)
+	curl, err := Parse(xxxxapi)
+	if err != nil {
+		t.Error(err)
+	}
+
 	resp, err := curl.CreateTemporary(nil).Execute()
 	if err != nil {
 		t.Error(err)
@@ -237,7 +285,10 @@ func TestCurlErrorCase1(t *testing.T) {
 
 func TestCharFile(t *testing.T) {
 	surl := `curl -X POST  'http://httpbin.org/post' --data-binary "@./tests/postfile.txt" `
-	curl := Parse(surl)
+	curl, err := Parse(surl)
+	if err != nil {
+		t.Error(err)
+	}
 	tp := curl.CreateTemporary(nil)
 	resp, err := tp.Execute()
 	if err != nil {
@@ -248,7 +299,10 @@ func TestCharFile(t *testing.T) {
 	}
 
 	surl = `curl -X POST  'http://httpbin.org/post' --data-urlencode a=12&b=21 `
-	curl = Parse(surl)
+	curl, err = Parse(surl)
+	if err != nil {
+		t.Error(err)
+	}
 	tp = curl.CreateTemporary(nil)
 	resp, err = tp.Execute()
 	if err != nil {
@@ -263,7 +317,10 @@ func TestCharFile(t *testing.T) {
 	}
 
 	surl = `curl -X POST  'http://httpbin.org/post' --data-raw a=12&b=aax `
-	curl = Parse(surl)
+	curl, err = Parse(surl)
+	if err != nil {
+		t.Error(err)
+	}
 	tp = curl.CreateTemporary(nil)
 	resp, err = tp.Execute()
 	if err != nil {
@@ -281,7 +338,10 @@ func TestCharFile(t *testing.T) {
 
 func TestUser(t *testing.T) {
 	surl := `curl   'http://httpbin.org/basic-auth/eson/1234567' --user eson:1234567 `
-	curl := Parse(surl)
+	curl, err := Parse(surl)
+	if err != nil {
+		t.Error(err)
+	}
 	tp := curl.CreateTemporary(nil)
 	resp, err := tp.Execute()
 	if err != nil {
@@ -292,7 +352,10 @@ func TestUser(t *testing.T) {
 	}
 
 	surl = `curl -X POST  'http://httpbin.org/post' --user-agent golang-gcurl `
-	curl = Parse(surl)
+	curl, err = Parse(surl)
+	if err != nil {
+		t.Error(err)
+	}
 	tp = curl.CreateTemporary(nil)
 	resp, err = tp.Execute()
 	if err != nil {
@@ -306,7 +369,10 @@ func TestUser(t *testing.T) {
 
 func TestReadmeEg1(t *testing.T) {
 	surl := ` http://httpbin.org/get  -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
-	curl := Parse(surl)
+	curl, err := Parse(surl)
+	if err != nil {
+		t.Error(err)
+	}
 	ses := curl.CreateSession()
 	tp := curl.CreateTemporary(ses)
 	// log.Println(ses.GetHeader())
@@ -336,7 +402,10 @@ func TestReadmeEg2(t *testing.T) {
 	--connect-timeout 1 
 	-H 'authority: appgrowing.cn'
 	-H 'accept-encoding: gzip, deflate, br' -H 'accept-language: zh' -H 'cookie: _ga=GA1.2.1371058419.1533104518; _gid=GA1.2.896241740.1543307916; _gat_gtag_UA_4002880_19=1' -H 'if-none-match: W/"5bf7a0a9-ca6"' -H 'if-modified-since: Fri, 23 Nov 2018 06:39:37 GMT'`
-	curl := Parse(scurl)
+	curl, err := Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
 	ses := curl.CreateSession()
 	wf := curl.CreateTemporary(ses)
 	// log.Println(ses.GetCookies(wf.ParsedURL))
@@ -366,7 +435,10 @@ func TestReadmeEg2(t *testing.T) {
 }
 
 func TestReadmeEg3(t *testing.T) {
-	c := Parse(`curl -X GET "http://httpbin.org/anything/1" -H "accept: application/json"`)
+	c, err := Parse(`curl -X GET "http://httpbin.org/anything/1" -H "accept: application/json"`)
+	if err != nil {
+		t.Error(err)
+	}
 	tp := c.Temporary()
 	pp := tp.PathParam(`anything/(\d+)`)
 	pp.IntSet(100)
@@ -382,10 +454,13 @@ func TestReadmeEg3(t *testing.T) {
 
 func TestCaseLimit(t *testing.T) {
 
-	c := Parse(`curl --limit-rate 200K -O http://httpbin.org/anything/100`)
+	c, err := Parse(`curl --limit-rate 200K -O http://httpbin.org/anything/100`)
+	if err != nil {
+		t.Error(err)
+	}
 	tp := c.Temporary()
 
-	_, err := tp.Execute()
+	_, err = tp.Execute()
 	if err != nil {
 		t.Error(err)
 		return
@@ -395,7 +470,10 @@ func TestCaseLimit(t *testing.T) {
 
 func TestCaseIHead(t *testing.T) {
 
-	c := Parse(`curl -I http://httpbin.org/anything/100`)
+	c, err := Parse(`curl -I http://httpbin.org/anything/100`)
+	if err != nil {
+		t.Error(err)
+	}
 	tp := c.Temporary()
 
 	resp, err := tp.Execute()

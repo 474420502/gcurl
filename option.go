@@ -2,7 +2,9 @@ package gcurl
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -63,8 +65,8 @@ type optionExecute struct {
 
 	Priority int
 
-	Parse   func(*CURL, string) // 执行函数
-	Extract *extract            // 提取的方法结构与参数
+	Parse   func(*CURL, string) error // 执行函数
+	Extract *extract                  // 提取的方法结构与参数
 }
 
 func (oe *optionExecute) GetWord() string {
@@ -92,67 +94,89 @@ func judgeOptions(u *CURL, soption string) *parseFunction {
 // 提取 被' or " 被包裹 Value值
 func extractData(re, soption string) string {
 	datas := regexp.MustCompile(re).FindStringSubmatch(soption)
+	if len(datas) < 2 {
+		log.Printf("error: extractData soption %s", soption)
+		return ""
+	}
 	return strings.Trim(datas[1], "'\"")
 }
 
-// func parseName(u *CURL, value string) {
+// func parseName(u *CURL, value string) error {
 // 	u.Name = value
 // }
 
-// func parseCrontab(u *CURL, value string) {
+// func parseCrontab(u *CURL, value string) error {
 // 	u.Crontab = value
 // }
 
-// func parseITask(u *CURL, value string) {
+// func parseITask(u *CURL, value string) error {
 // 	u.iTask = value
 // }
 
-func parseTimeout(u *CURL, value string) {
+func parseTimeout(u *CURL, value string) error {
 	timeout, err := strconv.Atoi(value)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return err
 	}
 	u.Timeout = timeout
+	return nil
 }
 
-func parseInsecure(u *CURL, soption string) {
+func parseInsecure(u *CURL, soption string) error {
 	u.Insecure = true
+	return nil
 }
 
-func parseUser(u *CURL, soption string) {
+func parseUser(u *CURL, soption string) error {
 	auth := strings.Split(soption, ":")
+	if len(auth) != 2 {
+		err := fmt.Errorf("error: parseUser soption = %s", soption)
+		log.Println(err)
+		return err
+	}
 	u.Auth = &requests.BasicAuth{User: auth[0], Password: auth[1]}
+	return nil
 }
 
-func parseUserAgent(u *CURL, value string) {
+func parseUserAgent(u *CURL, value string) error {
 	u.Header.Add("User-Agent", value)
+	return nil
 }
 
-func parseOptX(u *CURL, soption string) {
+func parseOptX(u *CURL, soption string) error {
 	matches := regexp.MustCompile("-X +(.+)").FindStringSubmatch(soption)
+	if len(matches) < 2 {
+		err := fmt.Errorf("error:parseOptX soption = %s", soption)
+		log.Println(err)
+		return err
+	}
 	method := strings.Trim(matches[1], "'")
 	u.Method = method
+	return nil
 }
 
-func parseBodyURLEncode(u *CURL, data string) {
+func parseBodyURLEncode(u *CURL, data string) error {
 	if u.Method != "" {
 		u.Method = "POST"
 	}
 
 	u.ContentType = requests.TypeURLENCODED
 	u.Body = bytes.NewBufferString(data)
+	return nil
 }
 
-func parseBodyRaw(u *CURL, data string) {
+func parseBodyRaw(u *CURL, data string) error {
 	if u.Method != "" {
 		u.Method = "POST"
 	}
 
 	u.ContentType = requests.TypeURLENCODED
 	u.Body = bytes.NewBufferString(data)
+	return nil
 }
 
-func parseBodyASCII(u *CURL, data string) {
+func parseBodyASCII(u *CURL, data string) error {
 	if u.Method != "" {
 		u.Method = "POST"
 	}
@@ -164,20 +188,31 @@ func parseBodyASCII(u *CURL, data string) {
 	} else {
 		f, err := os.Open(data[1:])
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			return err
 		}
 		defer f.Close()
 
 		bdata, err := ioutil.ReadAll(f)
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			return err
 		}
 		u.Body = bytes.NewBuffer(bdata)
 	}
+
+	return nil
 }
 
 // 处理@ 并且替/r/n符号
-func parseBodyBinary(u *CURL, data string) {
+func parseBodyBinary(u *CURL, data string) error {
+
+	if len(data) == 0 {
+		err := fmt.Errorf("error: parseBodyBinary data len is 0")
+		log.Println(err)
+		return err
+	}
+
 	if u.Method == "" {
 		u.Method = "POST"
 	}
@@ -189,12 +224,14 @@ func parseBodyBinary(u *CURL, data string) {
 	case '@':
 		f, err := os.Open(data[1:])
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			return err
 		}
 		defer f.Close()
 		bdata, err := ioutil.ReadAll(f)
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			return err
 		}
 		bdata = regexp.MustCompile("\n|\r").ReplaceAll(bdata, []byte(""))
 		u.Body = bytes.NewBuffer(bdata)
@@ -213,11 +250,18 @@ func parseBodyBinary(u *CURL, data string) {
 	default:
 		u.Body = bytes.NewBufferString(data)
 	}
-
+	return nil
 }
 
-func parseHeader(u *CURL, soption string) {
-	matches := regexp.MustCompile(`['"]([^:]+): ([^'"]+)['"]`).FindAllStringSubmatch(soption, 1)[0]
+func parseHeader(u *CURL, soption string) error {
+	result := regexp.MustCompile(`['"]([^:]+): ([^'"]+)['"]`).FindAllStringSubmatch(soption, 1)
+	if len(result) == 0 {
+		err := fmt.Errorf("error: parseHeader soption = %s", soption)
+		log.Println(err)
+		return err
+	}
+
+	matches := result[0]
 	key := matches[1]
 	lkey := strings.ToLower(key)
 	value := matches[2]
@@ -231,5 +275,5 @@ func parseHeader(u *CURL, soption string) {
 	default:
 		u.Header.Add(key, value)
 	}
-
+	return nil
 }
