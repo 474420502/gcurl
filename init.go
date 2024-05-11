@@ -4,6 +4,7 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -11,6 +12,8 @@ import (
 var gserver *http.ServeMux
 
 func init() {
+
+	log.SetFlags(log.Llongfile)
 
 	gserver = http.NewServeMux()
 	gserver.HandleFunc("/get/body-compressed", func(w http.ResponseWriter, r *http.Request) {

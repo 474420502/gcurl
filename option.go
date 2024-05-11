@@ -253,18 +253,77 @@ func parseBodyBinary(u *CURL, data string) error {
 	return nil
 }
 
+func parseHTTPHeaderKeyValue(soption string) (hkey string, hvalue string, err error) {
+	var i = 0
+	charlen := len(soption)
+
+	var stringMark byte
+	for i < charlen {
+		c := soption[i]
+		if c == '\'' || c == '"' {
+			stringMark = c
+			for charlen >= 0 {
+				tc := soption[charlen-1]
+				if tc == stringMark {
+					charlen--
+					break
+				}
+				charlen--
+			}
+
+			i++
+
+			var keystart = i
+			var keyend int
+			for i < charlen {
+				c := soption[i]
+				if c == ':' {
+					keyend = i
+					i++
+					break
+				}
+				i++
+			}
+
+			if keyend == 0 {
+				err = fmt.Errorf("error: keyend == 0 parseHeader soption = %s", soption)
+				log.Println(err)
+				return "", "", err
+			}
+
+			hkey = soption[keystart:keyend]
+
+			for i < charlen {
+				c := soption[i]
+				if c != ' ' {
+					break
+				}
+				i++
+			}
+
+			if i > charlen {
+				err = fmt.Errorf("error: i > charlen parseHeader soption = %s", soption)
+				log.Println(err)
+				return "", "", err
+			}
+
+			hvalue = soption[i:charlen]
+			return
+		}
+		i++
+	}
+
+	return
+}
+
 func parseHeader(u *CURL, soption string) error {
-	result := regexp.MustCompile(`['"]([^:]+): ([^'"]+)['"]`).FindAllStringSubmatch(soption, 1)
-	if len(result) == 0 {
-		err := fmt.Errorf("error: parseHeader soption = %s", soption)
-		log.Println(err)
+
+	key, value, err := parseHTTPHeaderKeyValue(soption)
+	if err != nil {
 		return err
 	}
 
-	matches := result[0]
-	key := matches[1]
 	lkey := strings.ToLower(key)
-	value := matches[2]
 
 	switch lkey {
 	case "cookie":
