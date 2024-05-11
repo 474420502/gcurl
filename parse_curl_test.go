@@ -11,12 +11,13 @@ func init() {
 }
 
 func TestCaseWindows(t *testing.T) {
+	var err error
 
-	scurl := `curl 'https://www.futuhk.com/api-hk/heartbeat' \
+	scurl := `curl 'https://www.xxxxx.com/api-hk/heartbeat' \
 	-H 'accept: application/json, text/plain, */*' \
 	-H 'accept-language: zh-CN,zh;q=0.9,en;q=0.8' \
-	-H 'origin: https://www.futunn.com' \
-	-H 'referer: https://www.futunn.com/' \
+	-H 'origin: https://www.xxxxx.com' \
+	-H 'referer: https://www.xxxxx.com/' \
 	-H 'sec-ch-ua: "Google Chrome";v="123", "Not:A-Brand";v="8", "Chromium";v="123"' \
 	-H 'sec-ch-ua-mobile: ?0' \
 	-H 'sec-ch-ua-platform: "Windows"' \
@@ -24,7 +25,43 @@ func TestCaseWindows(t *testing.T) {
 	-H 'sec-fetch-mode: cors' \
 	-H 'sec-fetch-site: cross-site' \
 	-H 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'`
-	_, err := Parse(scurl)
+	_, err = Parse(scurl)
+	if err != nil {
+		t.Error(err)
+	}
+
+	scurl2 := `curl "https://xxxx/api-hk/heartbeat" ^
+	-H "accept: application/json, text/plain, */*" ^
+	-H "accept-language: zh-CN,zh;q=0.9,en;q=0.8" ^
+	-H "origin: https://www.xxxx.com" ^
+	-H "referer: https://www.xxxx.com/" ^
+	-H ^"sec-ch-ua: ^\^"Google Chrome^\^";v=^\^"123^\^", ^\^"Not:A-Brand^\^";v=^\^"8^\^", ^\^"Chromium^\^";v=^\^"123^\^"^" ^
+	-H "sec-ch-ua-mobile: ?0" ^
+	-H ^"sec-ch-ua-platform: ^\^"Windows^\^"^" ^
+	-H "sec-fetch-dest: empty" ^
+	-H "sec-fetch-mode: cors" ^
+	-H "sec-fetch-site: cross-site" ^
+	-H "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"`
+	_, err = ParseCmd(scurl2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// -H ^" ^\n ^\^" ^%^"
+	scurl3 := `curl "https://www.jianshu.com/shakespeare/notes/94447551/included_collections?page=1&count=7" ^
+	-H "accept: application/json" ^
+	-H "accept-language: zh-CN,zh;q=0.9,en;q=0.8" ^
+	-H ^"cookie: locale=zh-CN; Hm_lvt_0c0e9d9b1e7d617b3e6842e85b9fb068=1712547029; _ga=GA1.2.273290375.1712547029; _ga_Y1EKTCT110=GS1.2.1712567179.2.0.1712567179.0.0.0; read_mode=day; default_font=font2; Hm_lpvt_0c0e9d9b1e7d617b3e6842e85b9fb068=1712567196; signin_redirect=https://www.jianshu.com/p/99941d7b8368; sensorsdata2015jssdkcross=^%^7B^%^22distinct_id^%^22^%^3A^%^2218eb693c6da528-007f4e1dd043a2-26001a51-2073600-18eb693c6db1c8c^%^22^%^2C^%^22first_id^%^22^%^3A^%^22^%^22^%^2C^%^22props^%^22^%^3A^%^7B^%^22^%^24latest_traffic_source_type^%^22^%^3A^%^22^%^E7^%^9B^%^B4^%^E6^%^8E^%^A5^%^E6^%^B5^%^81^%^E9^%^87^%^8F^%^22^%^2C^%^22^%^24latest_search_keyword^%^22^%^3A^%^22^%^E6^%^9C^%^AA^%^E5^%^8F^%^96^%^E5^%^88^%^B0^%^E5^%^80^%^BC_^%^E7^%^9B^%^B4^%^E6^%^8E^%^A5^%^E6^%^89^%^93^%^E5^%^BC^%^80^%^22^%^2C^%^22^%^24latest_referrer^%^22^%^3A^%^22^%^22^%^7D^%^2C^%^22^%^24device_id^%^22^%^3A^%^2218eb693c6da528-007f4e1dd043a2-26001a51-2073600-18eb693c6db1c8c^%^22^%^7D^" ^
+	-H ^"if-none-match: W/^\^"c76a1ce3db1e3d9de4516a5cd05b8f6f^\^"^" ^
+	-H "referer: https://www.jianshu.com/p/99941d7b8368" ^
+	-H ^"sec-ch-ua: ^\^"Google Chrome^\^";v=^\^"123^\^", ^\^"Not:A-Brand^\^";v=^\^"8^\^", ^\^"Chromium^\^";v=^\^"123^\^"^" ^
+	-H "sec-ch-ua-mobile: ?0" ^
+	-H ^"sec-ch-ua-platform: ^\^"Windows^\^"^" ^
+	-H "sec-fetch-dest: empty" ^
+	-H "sec-fetch-mode: cors" ^
+	-H "sec-fetch-site: same-origin" ^
+	-H "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"`
+	_, err = Parse(scurl3)
 	if err != nil {
 		t.Error(err)
 	}
@@ -159,7 +196,7 @@ func TestCurlWordWrap(t *testing.T) {
 		t.Error(curl.Cookies)
 	}
 
-	if len(curl.Header) != 9 { // Content-Type Cookie 会被单独提取出来, 也是Header一种.
+	if len(curl.Header) != 10 { // Content-Type Cookie 不会被单独提取出来, 也是Header一种.
 		t.Error(len(curl.Header), curl.Header)
 	}
 

@@ -57,7 +57,7 @@ func (curl *CURL) String() string {
 
 // Execute 直接执行curlbash
 func Execute(curlbash string) (*requests.Response, error) {
-	c, err := Parse(curlbash)
+	c, err := ParseBash(curlbash)
 	if err != nil {
 		return nil, err
 	}
@@ -138,8 +138,102 @@ const (
 	LongArgNoArg
 )
 
-// Parse curl_bash
+// cmdformat2bash cmdformat2bash
+func cmdformat2bash(scurl string) string {
+	builder := &strings.Builder{}
+	i := 0
+	for i < len(scurl) {
+		c := scurl[i]
+		if c == '^' {
+			if i+3 < len(scurl) && scurl[i+1] == '\\' && scurl[i+2] == '^' {
+				// 处理 ^\\^"
+				// log.Println(scurl[i:i+4], string(scurl[i+3]))
+				builder.WriteByte(scurl[i+3])
+				i += 4
+			} else if i+2 < len(scurl) && scurl[i+2] == '^' {
+				// ^%^ 处理这种字符串转换
+				// log.Println(scurl[i:i+3], string(scurl[i+1]))
+				builder.WriteByte(scurl[i+1])
+				i += 3
+			} else if i+1 < len(scurl) && scurl[i+1] == '"' {
+				// log.Println(scurl[i:i+2], string(scurl[i+1]))
+				builder.WriteByte('\'')
+				i += 2
+			} else if i+1 < len(scurl) {
+				// 处理 ^\\n 处理通用的转意格式
+				// 处理 ^" 特殊的把符号转换为regexp能识别的格式
+				// log.Println(scurl[i:i+2], string(scurl[i+1]))
+				builder.WriteByte(scurl[i+1])
+				i += 2
+			} else {
+				builder.WriteByte(c)
+				i++
+			}
+		} else {
+			builder.WriteByte(c)
+			i++
+		}
+	}
+	return builder.String()
+}
+
+// ParseCmd curl cmd  *Supports copying as cURL command (Cmd)
+func ParseCmd(scurl string) (curl *CURL, err error) {
+	return ParseBash(cmdformat2bash(scurl))
+}
+
+// (-H \\^\"|\\^\n|\\^\\\\\\^|\\^%\\^)
+var recheckCmdFormat = regexp.MustCompile("(-H \\^\"|\\^\n|\\^\\\\\\^|\\^%\\^)")
+
+// CheckCmdForamt CheckCmdFormat checks if a curl string is in the cmd format.
+func CheckCmdForamt(scurl string) bool {
+	// x := recheckCmdFormat.FindAllString(scurl, -1)
+	// log.Println(x)
+	return recheckCmdFormat.MatchString(scurl)
+}
+
+func checkCmdForamt2(scurl string) bool {
+	i := 0
+	count := 0
+	for i < len(scurl) {
+		c := scurl[i]
+		if c == '^' {
+			if i+3 < len(scurl) && scurl[i+1] == '\\' && scurl[i+2] == '^' {
+				// 处理 ^\\^"
+				count += 4
+				i += 4
+			} else if i+2 < len(scurl) && scurl[i+2] == '^' {
+				// ^%^ 处理这种字符串转换
+				count += 3
+				i += 3
+			} else if i+1 < len(scurl) {
+				// 处理 ^" 特殊的把符号转换为regexp能识别的格式
+				count += 2
+				i += 2
+			} else {
+				i++
+			}
+		} else {
+			i++
+		}
+	}
+
+	return count > 0
+}
+
+// Parse This method is compatible with both cmd and bash formats
+// but it merely forcibly converts cmd to bash.
+// It's recommended to use ParseBash instead.
+// If you encounter any issues, please submit an issue so that I can fix it.
 func Parse(scurl string) (curl *CURL, err error) {
+	if CheckCmdForamt(scurl) {
+		return ParseCmd(scurl)
+	}
+	return ParseBash(scurl)
+}
+
+// ParseBash curl bash  *Supports copying as cURL command only (Bash)
+func ParseBash(scurl string) (curl *CURL, err error) {
 	executor := newPQueueExecute()
 
 	if len(scurl) <= 4 {

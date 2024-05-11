@@ -260,6 +260,7 @@ func parseHTTPHeaderKeyValue(soption string) (hkey string, hvalue string, err er
 	var stringMark byte
 	for i < charlen {
 		c := soption[i]
+
 		if c == '\'' || c == '"' {
 			stringMark = c
 			for charlen >= 0 {
@@ -324,6 +325,7 @@ func parseHeader(u *CURL, soption string) error {
 	}
 
 	lkey := strings.ToLower(key)
+	u.Header.Add(key, value)
 
 	switch lkey {
 	case "cookie":
@@ -331,8 +333,6 @@ func parseHeader(u *CURL, soption string) error {
 		u.CookieJar.SetCookies(u.ParsedURL, u.Cookies)
 	case "content-type":
 		u.ContentType = value
-	default:
-		u.Header.Add(key, value)
 	}
 	return nil
 }
