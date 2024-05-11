@@ -10,6 +10,10 @@ func init() {
 	log.SetFlags(log.Llongfile)
 }
 
+func TestCaseWindows(t *testing.T) {
+
+}
+
 func TestMethod(t *testing.T) {
 	var scurl string
 	scurl = `curl -X PUT "http://httpbin.org/put"`

@@ -3,6 +3,7 @@
 * requests(https://github.com/474420502/requests)
 * Easy to transform curl bash to golang code
 * requests(inherit from curl bash) can add setting(config,cookie,header) and request url by you
+* Supports copying as cURL command only (Bash)
 
 # Installation
 
@@ -111,3 +112,4 @@ This example demonstrates how to parse a cURL command for a GET request with cus
 	//   "url": "http://httpbin.org/anything/100"
 	// }
 ```
+
