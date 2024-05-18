@@ -270,7 +270,8 @@ func ParseBash(scurl string) (curl *CURL, err error) {
 	if len(matches) != 0 {
 		curl = New()
 	}
-
+	// args := parseCurlCommandStr(scurl)
+	// log.Println(args)
 	for _, match := range matches {
 		for i, matchedContent := range match[1:] {
 			// 忽略空字符串
