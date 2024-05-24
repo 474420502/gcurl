@@ -235,7 +235,8 @@ func Parse(scurl string) (curl *CURL, err error) {
 // ParseBash curl bash  *Supports copying as cURL command only (Bash)
 func ParseBash(scurl string) (curl *CURL, err error) {
 	opts := parseCurlCommandStr(scurl)
-	log.Println(scurl, opts)
+	args := ParseCommandArgs(scurl)
+	log.Println(scurl, opts, args)
 	executor := newPQueueExecute()
 
 	if len(scurl) <= 4 {

@@ -1,6 +1,11 @@
 package gcurl
 
-import "strings"
+import (
+	"bytes"
+	"encoding/gob"
+	"os/exec"
+	"strings"
+)
 
 type CurlOptions struct {
 	Data       string
@@ -127,4 +132,20 @@ func parseCurlCommandStr(cmdstr string) *CommandParser {
 	}
 	cur.Collect()
 	return cur
+}
+
+func ParseCommandArgs(curlStr string) []string {
+	cmd := exec.Command("bash", "-c", "go run get_args/main.go "+curlStr)
+
+	data, err := cmd.Output()
+	if err != nil {
+		panic(err)
+	}
+	var buf = bytes.NewBuffer(data)
+	var args []string
+	err = gob.NewDecoder(buf).Decode(&args)
+	if err != nil {
+		panic(err)
+	}
+	return args
 }

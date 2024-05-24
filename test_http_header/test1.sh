@@ -1,6 +1,4 @@
-curl 'http://localhost:7070/api-hk/heartbeat' \
-	-H 'accept: application/json, text/plain, */*' \
-	-H 'accept-language: zh-CN,zh;q=0.9,en;q=0.8' \
+curl 'http://localhost:7070/api-hk/heartbeat' -H 'accept: application/json, text/plain, */*' -H 'accept-language: zh-CN,zh;q=0.9,en;q=0.8' \
 	-H 'origin: http://www.futunn.com' \
 	-H 'referer: http://www.futunn.com/' \
 	-H 'sec-ch-ua: "Google Chrome";v="123", "Not:A-Brand";v="8", "Chromium";v="123"' \
