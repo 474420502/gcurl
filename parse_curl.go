@@ -3,7 +3,6 @@ package gcurl
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -96,7 +95,7 @@ func (curl *CURL) CreateTemporary(ses *requests.Session) *requests.Temporary {
 	switch curl.Method {
 	case "HEAD":
 		wf = ses.Head(curl.ParsedURL.String())
-	case "GET":
+	case "GET", "":
 		wf = ses.Get(curl.ParsedURL.String())
 	case "POST":
 		wf = ses.Post(curl.ParsedURL.String())
@@ -108,6 +107,8 @@ func (curl *CURL) CreateTemporary(ses *requests.Session) *requests.Temporary {
 		wf = ses.Options(curl.ParsedURL.String())
 	case "DELETE":
 		wf = ses.Delete(curl.ParsedURL.String())
+	default:
+		panic("curl.Method is not UNKNOWN")
 	}
 
 	wf.SetContentType(curl.ContentType)
@@ -235,93 +236,99 @@ func Parse(scurl string) (curl *CURL, err error) {
 // ParseBash curl bash  *Supports copying as cURL command only (Bash)
 func ParseBash(scurl string) (curl *CURL, err error) {
 	opts := parseCurlCommandStr(scurl)
-	args := ParseCommandArgs(scurl)
-	log.Println(scurl, opts, args)
-	executor := newPQueueExecute()
+	// args := parseCommandArgsEx(scurl)
+	// if !opts.compare(args) {
+	// 	log.Println(opts, args)
+	// }
+	// log.Println(opts)
 
-	if len(scurl) <= 4 {
-		err = fmt.Errorf("scurl error: %s", scurl)
-		log.Println(err)
-		return nil, err
-	}
+	return ParseOptions(opts)
 
-	if scurl[0] == '"' && scurl[len(scurl)-1] == '"' {
-		scurl = strings.Trim(scurl, `"`)
-	} else if scurl[0] == '\'' && scurl[len(scurl)-1] == '\'' {
-		scurl = strings.Trim(scurl, `'`)
-	}
+	// executor := newPQueueExecute()
 
-	scurl = strings.TrimSpace(scurl)
-	scurl = strings.TrimLeft(scurl, "curl")
+	// if len(scurl) <= 4 {
+	// 	err = fmt.Errorf("scurl error: %s", scurl)
+	// 	log.Println(err)
+	// 	return nil, err
+	// }
 
-	pattern := `((?:http|https)://[^\n\s]+(?:[\n \t]|$))|` +
-		`(-(?:O|L|I|s|k|C|4|6)(?:[\n \t]|$))|` +
-		`(--(?:remote-name|location|head|silent|insecure|continue-at|ipv4|ipv6|compressed)(?:[\n \t]|$))|` +
-		`(--data-binary +\$.+--\\r\\n'(?:[\n \t]|$))|` +
-		`(--[^ ]+ +'[^']+'(?:[\n \t]|$))|` +
-		`(--[^ ]+ +"[^"]+"(?:[\n \t]|$))|` +
-		`(--[^ ]+ +[^ ]+)|` +
-		`(-[A-Za-z] +'[^']+'(?:[\n \t]|$))|` +
-		`(-[A-Za-z] +"[^"]+"(?:[\n \t]|$))|` +
-		`(-[A-Za-z] +[^ ]+)|` +
-		`([\n \t]'[^']+'(?:[\n \t]|$))|` +
-		`([\n \t]"[^"]+"(?:[\n \t]|$))|` +
-		`(--[a-z]+ {0,})`
+	// if scurl[0] == '"' && scurl[len(scurl)-1] == '"' {
+	// 	scurl = strings.Trim(scurl, `"`)
+	// } else if scurl[0] == '\'' && scurl[len(scurl)-1] == '\'' {
+	// 	scurl = strings.Trim(scurl, `'`)
+	// }
 
-	re := regexp.MustCompile(pattern)
-	matches := re.FindAllStringSubmatch(scurl, -1)
-	if len(matches) != 0 {
-		curl = New()
-	}
-	// args := parseCurlCommandStr(scurl)
-	// log.Println(args)
-	for _, match := range matches {
-		for i, matchedContent := range match[1:] {
-			// 忽略空字符串
-			if matchedContent == "" {
-				continue
-			}
-			matchedContent = strings.Trim(matchedContent, " \n\t")
+	// scurl = strings.TrimSpace(scurl)
+	// scurl = strings.TrimLeft(scurl, "curl")
 
-			// 使用 MatchGroup 常量替换 matchedGroup 字符串
-			switch MatchGroup(i) {
-			case HTTPHTTPS, NewlineQuotes, NewlineDoubleQuotes:
-				purl, err := url.Parse(strings.Trim(matchedContent, `"'`))
-				if err != nil {
-					log.Println(err)
-					return nil, err
-				}
-				curl.ParsedURL = purl
+	// pattern := `((?:http|https)://[^\n\s]+(?:[\n \t]|$))|` +
+	// 	`(-(?:O|L|I|s|k|C|4|6)(?:[\n \t]|$))|` +
+	// 	`(--(?:remote-name|location|head|silent|insecure|continue-at|ipv4|ipv6|compressed)(?:[\n \t]|$))|` +
+	// 	`(--data-binary +\$.+--\\r\\n'(?:[\n \t]|$))|` +
+	// 	`(--[^ ]+ +'[^']+'(?:[\n \t]|$))|` +
+	// 	`(--[^ ]+ +"[^"]+"(?:[\n \t]|$))|` +
+	// 	`(--[^ ]+ +[^ ]+)|` +
+	// 	`(-[A-Za-z] +'[^']+'(?:[\n \t]|$))|` +
+	// 	`(-[A-Za-z] +"[^"]+"(?:[\n \t]|$))|` +
+	// 	`(-[A-Za-z] +[^ ]+)|` +
+	// 	`([\n \t]'[^']+'(?:[\n \t]|$))|` +
+	// 	`([\n \t]"[^"]+"(?:[\n \t]|$))|` +
+	// 	`(--[a-z]+ {0,})`
 
-			case DataBinary,
-				LongArgQuotes, LongArgDoubleQuotes, LongArgNoQuotes,
-				ShortArgQuotes, ShortArgDoubleQuotes, ShortArgNoQuotes,
-				LongArgNoArg:
-				exec := judgeOptions(curl, matchedContent)
-				if exec != nil {
-					executor.Push(exec)
-				}
-			case ShortNoArg, LongNoArgSpecial:
-				switch matchedContent {
-				case "-I", "--head":
-					curl.Method = "HEAD"
-				default:
-					log.Println(matchedContent, "this option is invalid.")
-				}
-			}
-		}
-	}
+	// re := regexp.MustCompile(pattern)
+	// matches := re.FindAllStringSubmatch(scurl, -1)
+	// if len(matches) != 0 {
+	// 	curl = New()
+	// }
+	// // args := parseCurlCommandStr(scurl)
+	// // log.Println(args)
+	// for _, match := range matches {
+	// 	for i, matchedContent := range match[1:] {
+	// 		// 忽略空字符串
+	// 		if matchedContent == "" {
+	// 			continue
+	// 		}
+	// 		matchedContent = strings.Trim(matchedContent, " \n\t")
 
-	for executor.Len() > 0 {
-		exec := executor.Pop()
-		if err = exec.Execute(); err != nil {
-			return nil, err
-		}
-	}
+	// 		// 使用 MatchGroup 常量替换 matchedGroup 字符串
+	// 		switch MatchGroup(i) {
+	// 		case HTTPHTTPS, NewlineQuotes, NewlineDoubleQuotes:
+	// 			purl, err := url.Parse(strings.Trim(matchedContent, `"'`))
+	// 			if err != nil {
+	// 				log.Println(err)
+	// 				return nil, err
+	// 			}
+	// 			curl.ParsedURL = purl
 
-	if curl.Method == "" {
-		curl.Method = "GET"
-	}
+	// 		case DataBinary,
+	// 			LongArgQuotes, LongArgDoubleQuotes, LongArgNoQuotes,
+	// 			ShortArgQuotes, ShortArgDoubleQuotes, ShortArgNoQuotes,
+	// 			LongArgNoArg:
+	// 			exec := judgeOptions(curl, matchedContent)
+	// 			if exec != nil {
+	// 				executor.Push(exec)
+	// 			}
+	// 		case ShortNoArg, LongNoArgSpecial:
+	// 			switch matchedContent {
+	// 			case "-I", "--head":
+	// 				curl.Method = "HEAD"
+	// 			default:
+	// 				log.Println(matchedContent, "this option is invalid.")
+	// 			}
+	// 		}
+	// 	}
+	// }
 
-	return curl, nil
+	// for executor.Len() > 0 {
+	// 	exec := executor.Pop()
+	// 	if err = exec.Execute(); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
+	// if curl.Method == "" {
+	// 	curl.Method = "GET"
+	// }
+
+	// return curl, nil
 }

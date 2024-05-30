@@ -1,11 +1,8 @@
 package gcurl
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -15,34 +12,34 @@ import (
 
 func init() {
 	optionTrie = newTrie()
-	oelist := []*optionExecute{
-		{"-H", 10, parseHeader, nil},
-		{"-X", 10, parseOptX, nil},
-		{"-A", 15, parseUserAgent, &extract{re: "^-A +(.+)", execute: extractData}},
-		{"-d", 10, parseBodyASCII, &extract{re: "^-d +(.+)", execute: extractData}},
-		{"-u", 15, parseUser, &extract{re: "^-u +(.+)", execute: extractData}},
-		{"-k", 15, parseInsecure, nil},
-		// Body
-		{"--data", 10, parseBodyASCII, &extract{re: "--data +(.+)", execute: extractData}},
-		{"--data-urlencode", 10, parseBodyURLEncode, &extract{re: "--data-urlencode +(.+)", execute: extractData}},
-		{"--data-binary", 10, parseBodyBinary, &extract{re: "--data-binary +(\\${0,1}.+)", execute: extractData}},
-		{"--data-ascii", 10, parseBodyASCII, &extract{re: "--data-ascii +(.+)", execute: extractData}},
-		{"--data-raw", 10, parseBodyRaw, &extract{re: "--data-raw +(.+)", execute: extractData}},
-		//"--"
-		{"--header", 10, parseHeader, nil},
-		{"--insecure", 15, parseInsecure, nil},
-		{"--user-agent", 15, parseUserAgent, &extract{re: "--user-agent +(.+)", execute: extractData}},
-		{"--user", 15, parseUser, &extract{re: "--user +(.+)", execute: extractData}},
-		{"--connect-timeout", 15, parseTimeout, &extract{re: "--connect-timeout +(.+)", execute: extractData}},
-		// 自定义
-		// {"--task", 10, parseITask, &extract{re: "--task +(.+)", execute: extractData}},
-		// {"--crontab", 10, parseCrontab, &extract{re: "--crontab +(.+)", execute: extractData}},
-		// {"--name", 10, parseName, &extract{re: "--name +(.+)", execute: extractData}},
-	}
+	// oelist := []*optionExecute{
+	// 	{"-H", 10, parseHeader, nil},
+	// 	{"-X", 10, parseMethod, nil},
+	// 	{"-A", 15, parseUserAgent, &extract{re: "^-A +(.+)", execute: extractData}},
+	// 	{"-d", 10, parseBodyASCII, &extract{re: "^-d +(.+)", execute: extractData}},
+	// 	{"-u", 15, parseUser, &extract{re: "^-u +(.+)", execute: extractData}},
+	// 	{"-k", 15, parseInsecure, nil},
 
-	for _, oe := range oelist {
-		optionTrie.Insert(oe)
-	}
+	// 	{"--data", 10, parseBodyASCII, &extract{re: "--data +(.+)", execute: extractData}},
+	// 	{"--data-urlencode", 10, parseBodyURLEncode, &extract{re: "--data-urlencode +(.+)", execute: extractData}},
+	// 	{"--data-binary", 10, parseBodyBinary, &extract{re: "--data-binary +(\\{0,1}.+)", execute: extractData}},
+	// 	{"--data-ascii", 10, parseBodyASCII, &extract{re: "--data-ascii +(.+)", execute: extractData}},
+	// 	{"--data-raw", 10, parseBodyRaw, &extract{re: "--data-raw +(.+)", execute: extractData}},
+	// 	//"--"
+	// 	{"--header", 10, parseHeader, nil},
+	// 	{"--insecure", 15, parseInsecure, nil},
+	// 	{"--user-agent", 15, parseUserAgent, &extract{re: "--user-agent +(.+)", execute: extractData}},
+	// 	{"--user", 15, parseUser, &extract{re: "--user +(.+)", execute: extractData}},
+	// 	{"--connect-timeout", 15, parseTimeout, &extract{re: "--connect-timeout +(.+)", execute: extractData}},
+	// 	// 自定义
+	// 	// {"--task", 10, parseITask, &extract{re: "--task +(.+)", execute: extractData}},
+	// 	// {"--crontab", 10, parseCrontab, &extract{re: "--crontab +(.+)", execute: extractData}},
+	// 	// {"--name", 10, parseName, &extract{re: "--name +(.+)", execute: extractData}},
+	// }
+
+	// for _, oe := range oelist {
+	// 	optionTrie.Insert(oe)
+	// }
 
 	// log.Println("support options:", optionTrie.AllWords())
 }
@@ -81,11 +78,11 @@ func (oe *optionExecute) BuildFunction(curl *CURL, soption string) *parseFunctio
 	return &parseFunction{ParamCURL: curl, ParamData: data, ExecuteFunction: oe.Parse, Priority: oe.Priority}
 }
 
-func judgeOptions(u *CURL, soption string) *parseFunction {
-	word := trieStrWord(soption)
+func judgeOptions(u *CURL, soption *OptionValue) *parseFunction {
+	word := trieStrWord(soption.String())
 	if ioe := optionTrie.SearchDepth(&word); ioe != nil {
 		oe := ioe.(*optionExecute)
-		return oe.BuildFunction(u, soption)
+		return oe.BuildFunction(u, soption.String())
 	}
 
 	return nil
@@ -113,8 +110,8 @@ func extractData(re, soption string) string {
 // 	u.iTask = value
 // }
 
-func parseTimeout(u *CURL, value string) error {
-	timeout, err := strconv.Atoi(value)
+func parseTimeout(u *CURL, value *OptionValue) error {
+	timeout, err := strconv.Atoi(value.String())
 	if err != nil {
 		log.Println(err)
 		return err
@@ -123,13 +120,13 @@ func parseTimeout(u *CURL, value string) error {
 	return nil
 }
 
-func parseInsecure(u *CURL, soption string) error {
+func parseInsecure(u *CURL, soption *OptionValue) error {
 	u.Insecure = true
 	return nil
 }
 
-func parseUser(u *CURL, soption string) error {
-	auth := strings.Split(soption, ":")
+func parseUser(u *CURL, soption *OptionValue) error {
+	auth := strings.Split(soption.String(), ":")
 	if len(auth) != 2 {
 		err := fmt.Errorf("error: parseUser soption = %s", soption)
 		log.Println(err)
@@ -139,117 +136,88 @@ func parseUser(u *CURL, soption string) error {
 	return nil
 }
 
-func parseUserAgent(u *CURL, value string) error {
-	u.Header.Add("User-Agent", value)
+func parseUserAgent(u *CURL, value *OptionValue) error {
+	u.Header.Add("User-Agent", value.String())
 	return nil
 }
 
-func parseOptX(u *CURL, soption string) error {
-	matches := regexp.MustCompile("-X +(.+)").FindStringSubmatch(soption)
-	if len(matches) < 2 {
-		err := fmt.Errorf("error:parseOptX soption = %s", soption)
-		log.Println(err)
-		return err
-	}
-	method := strings.Trim(matches[1], "'")
-	u.Method = method
+func parseMethod(u *CURL, soption *OptionValue) error {
+	u.Method = soption.String()
 	return nil
 }
 
-func parseBodyURLEncode(u *CURL, data string) error {
+func parseBodyURLEncode(u *CURL, data *OptionValue) error {
 	if u.Method != "" {
 		u.Method = "POST"
 	}
 
 	u.ContentType = requests.TypeURLENCODED
-	u.Body = bytes.NewBufferString(data)
+	u.Body = data.Buffer()
 	return nil
 }
 
-func parseBodyRaw(u *CURL, data string) error {
+func parseBodyRaw(u *CURL, data *OptionValue) error {
 	if u.Method != "" {
 		u.Method = "POST"
 	}
 
 	u.ContentType = requests.TypeURLENCODED
-	u.Body = bytes.NewBufferString(data)
+	u.Body = data.Buffer()
 	return nil
 }
 
-func parseBodyASCII(u *CURL, data string) error {
+func parseBodyASCII(u *CURL, data *OptionValue) error {
 	if u.Method != "" {
 		u.Method = "POST"
 	}
 
 	u.ContentType = requests.TypeURLENCODED
 
-	if data[0] != '@' {
-		u.Body = bytes.NewBufferString(data)
-	} else {
-		f, err := os.Open(data[1:])
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-		defer f.Close()
-
-		bdata, err := ioutil.ReadAll(f)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-		u.Body = bytes.NewBuffer(bdata)
-	}
+	u.Body = data.Buffer()
 
 	return nil
 }
 
 // 处理@ 并且替/r/n符号
-func parseBodyBinary(u *CURL, data string) error {
-
-	if len(data) == 0 {
-		err := fmt.Errorf("error: parseBodyBinary data len is 0")
-		log.Println(err)
-		return err
-	}
+func parseBodyBinary(u *CURL, data *OptionValue) error {
 
 	if u.Method == "" {
 		u.Method = "POST"
 	}
 
 	u.ContentType = requests.TypeURLENCODED
+	u.Body = data.Buffer()
+	// firstchar := data[0]
+	// switch firstchar {
+	// case '@':
+	// 	f, err := os.Open(data[1:])
+	// 	if err != nil {
+	// 		log.Println(err)
+	// 		return err
+	// 	}
+	// 	defer f.Close()
+	// 	bdata, err := ioutil.ReadAll(f)
+	// 	if err != nil {
+	// 		log.Println(err)
+	// 		return err
+	// 	}
+	// 	bdata = regexp.MustCompile("\n|\r").ReplaceAll(bdata, []byte(""))
+	// 	u.Body = bytes.NewBuffer(bdata)
+	// case '$':
+	// 	data = strings.ReplaceAll(data[2:], `\r\n`, "\r\n")
+	// 	u.Body = bytes.NewBufferString(data)
+	// 	// boundary parse
+	// 	// bindex := strings.Index(data, `\r\n`)
+	// 	// boundary := data[4:bindex] // '$--(len=4) build function 已经Trim 末尾'
 
-	firstchar := data[0]
-	switch firstchar {
-	case '@':
-		f, err := os.Open(data[1:])
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-		defer f.Close()
-		bdata, err := ioutil.ReadAll(f)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-		bdata = regexp.MustCompile("\n|\r").ReplaceAll(bdata, []byte(""))
-		u.Body = bytes.NewBuffer(bdata)
-	case '$':
-		data = strings.ReplaceAll(data[2:], `\r\n`, "\r\n")
-		u.Body = bytes.NewBufferString(data)
-		// boundary parse
-		// bindex := strings.Index(data, `\r\n`)
-		// boundary := data[4:bindex] // '$--(len=4) build function 已经Trim 末尾'
-
-		// log.Println(fmt.Sprintf(`\r\n--%s--\r\n`, boundary))
-		// blastindex := strings.LastIndex(data, fmt.Sprintf(`\r\n--%s--\r\n`, boundary))
-		// data = data[bindex+4 : blastindex]
-		// strings.Split(data, fmt.Sprintf(`\r\n--%s\r\n`, boundary))
-		// log.Println(data)
-	default:
-		u.Body = bytes.NewBufferString(data)
-	}
+	// 	// log.Println(fmt.Sprintf(`\r\n--%s--\r\n`, boundary))
+	// 	// blastindex := strings.LastIndex(data, fmt.Sprintf(`\r\n--%s--\r\n`, boundary))
+	// 	// data = data[bindex+4 : blastindex]
+	// 	// strings.Split(data, fmt.Sprintf(`\r\n--%s\r\n`, boundary))
+	// 	// log.Println(data)
+	// default:
+	// 	u.Body = bytes.NewBufferString(data)
+	// }
 	return nil
 }
 
@@ -257,69 +225,54 @@ func parseHTTPHeaderKeyValue(soption string) (hkey string, hvalue string, err er
 	var i = 0
 	charlen := len(soption)
 
-	var stringMark byte
-	for i < charlen {
+	var keyBuilder = &strings.Builder{}
+	var valueBuilder = &strings.Builder{}
+	// get key string
+	for ; i < charlen; i++ {
 		c := soption[i]
-
-		if c == '\'' || c == '"' {
-			stringMark = c
-			for charlen >= 0 {
-				tc := soption[charlen-1]
-				if tc == stringMark {
-					charlen--
-					break
-				}
-				charlen--
-			}
-
+		if c == ':' {
 			i++
-
-			var keystart = i
-			var keyend int
-			for i < charlen {
-				c := soption[i]
-				if c == ':' {
-					keyend = i
-					i++
-					break
-				}
-				i++
-			}
-
-			if keyend == 0 {
-				err = fmt.Errorf("error: keyend == 0 parseHeader soption = %s", soption)
-				log.Println(err)
-				return "", "", err
-			}
-
-			hkey = soption[keystart:keyend]
-
-			for i < charlen {
-				c := soption[i]
-				if c != ' ' {
-					break
-				}
-				i++
-			}
-
-			if i > charlen {
-				err = fmt.Errorf("error: i > charlen parseHeader soption = %s", soption)
-				log.Println(err)
-				return "", "", err
-			}
-
-			hvalue = soption[i:charlen]
-			return
+			break
 		}
-		i++
+		err := keyBuilder.WriteByte(c)
+		if err != nil {
+			return "", "", err
+		}
 	}
 
-	return
+	// skip space
+	for ; i < charlen; i++ {
+		c := soption[i]
+		if c != ' ' {
+			break
+		}
+	}
+
+	var stringMark byte
+	c := soption[i]
+	if c == '\'' || c == '"' {
+		stringMark = c
+		if soption[charlen-1] != stringMark {
+			return "", "", fmt.Errorf("%b != %b", soption[charlen-1], stringMark)
+		}
+		i++
+		charlen--
+	}
+
+	for ; i < charlen; i++ {
+		c := soption[i]
+		err := valueBuilder.WriteByte(c)
+		if err != nil {
+			return "", "", err
+		}
+	}
+
+	return keyBuilder.String(), valueBuilder.String(), nil
 }
 
-func parseHeader(u *CURL, soption string) error {
+func parseHeader(u *CURL, soption *OptionValue) error {
 
-	key, value, err := parseHTTPHeaderKeyValue(soption)
+	key, value, err := parseHTTPHeaderKeyValue(soption.String())
 	if err != nil {
 		return err
 	}

@@ -11,6 +11,7 @@ func init() {
 }
 
 func TestCaseWindows(t *testing.T) {
+
 	var err error
 
 	scurl := `curl 'https://www.xxxxx.com/api-hk/heartbeat' \
@@ -263,7 +264,7 @@ func TestPostFile(t *testing.T) {
 		t.Error(err)
 	}
 	if !regexp.MustCompile("hello kids").Match(resp.Content()) {
-		t.Error(resp.Content())
+		t.Error(resp.ContentString())
 	}
 }
 
@@ -286,7 +287,7 @@ func TestCurlPaserHttp(t *testing.T) {
 		t.Error(string(resp.Content()))
 	}
 
-	log.Println(resp.Json())
+	// log.Println(resp.Json())
 	// resp.Json()
 }
 
@@ -334,7 +335,7 @@ func TestCurlErrorCase1(t *testing.T) {
 		t.Error(err)
 	}
 
-	t.Log(curl.String())
+	// t.Log(curl.String())
 
 	if !regexp.MustCompile("keyType").Match(resp.Content()) {
 		t.Error(string(resp.Content()))

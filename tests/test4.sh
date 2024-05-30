@@ -1,0 +1,1 @@
+curl -X POST "http://httpbin.org/post" --data "@./tests/postfile.txt"
