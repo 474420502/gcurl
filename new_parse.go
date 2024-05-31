@@ -30,11 +30,16 @@ type CurlOptions struct {
 
 type CommandParser struct {
 	Args         []string
-	ArgOptionMap map[string][]*OptionValue
-	CurArgKey    *string
-	CurSign      *rune
-	ArgBuilder   *strings.Builder
-	OpenClose    *rune
+	ArgOptionMap map[string][]*ArgOptionValue
+
+	CurArgOption *ArgOptionValue
+
+	CurArgKey   *string
+	CurSign     *rune
+	CurSkipType SkipType
+
+	ArgBuilder *strings.Builder
+	OpenClose  *rune
 }
 
 func (opc *CommandParser) compare(other *CommandParser) bool {
@@ -78,13 +83,17 @@ func (opc *CommandParser) WriteRune(r rune) (int, error) {
 
 // collect arg 和 opt
 func (opc *CommandParser) Collect() {
+
+ 
+
 	if opc.ArgBuilder.Len() != 0 {
 		arg := opc.ArgBuilder.String()
+
 		if opc.CurArgKey != nil {
 
-			optvalue := &OptionValue{}
+			optvalue := &ArgOptionValue{}
 			if opc.CurSign != nil {
-				optvalue.sign = opc.CurSign
+				optvalue.exprSign = opc.CurSign
 				optvalue.expression = arg
 			} else {
 				optvalue.value = bytes.NewBufferString(arg)
@@ -95,9 +104,13 @@ func (opc *CommandParser) Collect() {
 			opc.CurSign = nil
 		} else {
 			if arg[0] == '-' {
+				opc.CurSkipType = checkInSkipList(arg)  
+				 
 				if _, ok := opc.ArgOptionMap[arg]; !ok {
-					opc.ArgOptionMap[arg] = []*OptionValue{}
+					opc.ArgOptionMap[arg] = []*ArgOptionValue{}
 				}
+				opc.CurSkipType = checkInSkipList(arg)  
+				if opc.CurSkipType == onlyOption
 				opc.CurArgKey = &arg
 			} else {
 				opc.Args = append(opc.Args, arg)
@@ -110,22 +123,24 @@ func (opc *CommandParser) Collect() {
 
 }
 
-type OptionValue struct {
+type ArgOptionValue struct {
 	value *bytes.Buffer
 
+	optionSign *string // 设置符号
+
 	expression string // 字符串值
-	sign       *rune  // 标记符号
+	exprSign   *rune  // 标记符号
 }
 
-func (optv *OptionValue) check() error {
+func (optv *ArgOptionValue) check() error {
 
 	if optv.value == nil {
-		if optv.sign == nil {
+		if optv.exprSign == nil {
 			return fmt.Errorf("Value and Sign is nil")
 		}
 
-		if optv.sign != nil {
-			sign := *optv.sign
+		if optv.exprSign != nil {
+			sign := *optv.exprSign
 			switch sign {
 			case '@':
 
@@ -157,7 +172,7 @@ func (optv *OptionValue) check() error {
 	return nil
 }
 
-func (optv *OptionValue) Buffer() *bytes.Buffer {
+func (optv *ArgOptionValue) Buffer() *bytes.Buffer {
 	err := optv.check()
 	if err != nil {
 		log.Println(err)
@@ -165,7 +180,7 @@ func (optv *OptionValue) Buffer() *bytes.Buffer {
 	return optv.value
 }
 
-func (optv *OptionValue) String() string {
+func (optv *ArgOptionValue) String() string {
 	err := optv.check()
 	if err != nil {
 		log.Println(err)
@@ -176,7 +191,7 @@ func (optv *OptionValue) String() string {
 
 func newCommandParser() *CommandParser {
 	return &CommandParser{
-		ArgOptionMap: make(map[string][]*OptionValue),
+		ArgOptionMap: make(map[string][]*ArgOptionValue),
 		ArgBuilder:   &strings.Builder{},
 	}
 }
@@ -202,6 +217,14 @@ func parseCurlCommandStr(cmdstr string) *CommandParser {
 				cur.Collect()
 				cur.CurSign = &c
 			case strQuote1, strQuote2:
+				if i+1 < buflen {
+					nextChar := cmdstrbuf[i+1]
+					switch nextChar {
+					case '$', '@':
+						cur.CurSign = &nextChar
+						i++
+					}
+				}
 				cur.Collect()
 				cur.OpenClose = &c
 			case '\\':
@@ -299,7 +322,7 @@ func parseCommandArgsEx(curlStr string) *CommandParser {
 						break
 					}
 
-					result.ArgOptionMap[arg] = append(result.ArgOptionMap[arg], &OptionValue{
+					result.ArgOptionMap[arg] = append(result.ArgOptionMap[arg], &ArgOptionValue{
 						value: bytes.NewBufferString(nextArg),
 					})
 					i = nextIndex

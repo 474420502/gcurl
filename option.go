@@ -78,7 +78,7 @@ func (oe *optionExecute) BuildFunction(curl *CURL, soption string) *parseFunctio
 	return &parseFunction{ParamCURL: curl, ParamData: data, ExecuteFunction: oe.Parse, Priority: oe.Priority}
 }
 
-func judgeOptions(u *CURL, soption *OptionValue) *parseFunction {
+func judgeOptions(u *CURL, soption *ArgOptionValue) *parseFunction {
 	word := trieStrWord(soption.String())
 	if ioe := optionTrie.SearchDepth(&word); ioe != nil {
 		oe := ioe.(*optionExecute)
@@ -110,7 +110,7 @@ func extractData(re, soption string) string {
 // 	u.iTask = value
 // }
 
-func parseTimeout(u *CURL, value *OptionValue) error {
+func parseTimeout(u *CURL, value *ArgOptionValue) error {
 	timeout, err := strconv.Atoi(value.String())
 	if err != nil {
 		log.Println(err)
@@ -120,12 +120,12 @@ func parseTimeout(u *CURL, value *OptionValue) error {
 	return nil
 }
 
-func parseInsecure(u *CURL, soption *OptionValue) error {
+func parseInsecure(u *CURL, soption *ArgOptionValue) error {
 	u.Insecure = true
 	return nil
 }
 
-func parseUser(u *CURL, soption *OptionValue) error {
+func parseUser(u *CURL, soption *ArgOptionValue) error {
 	auth := strings.Split(soption.String(), ":")
 	if len(auth) != 2 {
 		err := fmt.Errorf("error: parseUser soption = %s", soption)
@@ -136,17 +136,17 @@ func parseUser(u *CURL, soption *OptionValue) error {
 	return nil
 }
 
-func parseUserAgent(u *CURL, value *OptionValue) error {
+func parseUserAgent(u *CURL, value *ArgOptionValue) error {
 	u.Header.Add("User-Agent", value.String())
 	return nil
 }
 
-func parseMethod(u *CURL, soption *OptionValue) error {
+func parseMethod(u *CURL, soption *ArgOptionValue) error {
 	u.Method = soption.String()
 	return nil
 }
 
-func parseBodyURLEncode(u *CURL, data *OptionValue) error {
+func parseBodyURLEncode(u *CURL, data *ArgOptionValue) error {
 	if u.Method != "" {
 		u.Method = "POST"
 	}
@@ -156,7 +156,7 @@ func parseBodyURLEncode(u *CURL, data *OptionValue) error {
 	return nil
 }
 
-func parseBodyRaw(u *CURL, data *OptionValue) error {
+func parseBodyRaw(u *CURL, data *ArgOptionValue) error {
 	if u.Method != "" {
 		u.Method = "POST"
 	}
@@ -166,7 +166,7 @@ func parseBodyRaw(u *CURL, data *OptionValue) error {
 	return nil
 }
 
-func parseBodyASCII(u *CURL, data *OptionValue) error {
+func parseBodyASCII(u *CURL, data *ArgOptionValue) error {
 	if u.Method != "" {
 		u.Method = "POST"
 	}
@@ -179,7 +179,7 @@ func parseBodyASCII(u *CURL, data *OptionValue) error {
 }
 
 // 处理@ 并且替/r/n符号
-func parseBodyBinary(u *CURL, data *OptionValue) error {
+func parseBodyBinary(u *CURL, data *ArgOptionValue) error {
 
 	if u.Method == "" {
 		u.Method = "POST"
@@ -270,7 +270,7 @@ func parseHTTPHeaderKeyValue(soption string) (hkey string, hvalue string, err er
 	return keyBuilder.String(), valueBuilder.String(), nil
 }
 
-func parseHeader(u *CURL, soption *OptionValue) error {
+func parseHeader(u *CURL, soption *ArgOptionValue) error {
 
 	key, value, err := parseHTTPHeaderKeyValue(soption.String())
 	if err != nil {
