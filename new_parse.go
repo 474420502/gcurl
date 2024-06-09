@@ -84,8 +84,6 @@ func (opc *CommandParser) WriteRune(r rune) (int, error) {
 // collect arg 和 opt
 func (opc *CommandParser) Collect() {
 
- 
-
 	if opc.ArgBuilder.Len() != 0 {
 		arg := opc.ArgBuilder.String()
 
@@ -104,14 +102,16 @@ func (opc *CommandParser) Collect() {
 			opc.CurSign = nil
 		} else {
 			if arg[0] == '-' {
-				opc.CurSkipType = checkInSkipList(arg)  
-				 
+				opc.CurSkipType = checkInSkipList(arg)
+
 				if _, ok := opc.ArgOptionMap[arg]; !ok {
 					opc.ArgOptionMap[arg] = []*ArgOptionValue{}
 				}
-				opc.CurSkipType = checkInSkipList(arg)  
-				if opc.CurSkipType == onlyOption
-				opc.CurArgKey = &arg
+				opc.CurSkipType = checkInSkipList(arg)
+				if opc.CurSkipType == ST_NotSkipType {
+					opc.CurArgKey = &arg
+				}
+
 			} else {
 				opc.Args = append(opc.Args, arg)
 			}

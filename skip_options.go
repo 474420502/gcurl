@@ -10,6 +10,7 @@ const (
 
 var skipList = map[string]SkipType{
 	"-O":            ST_OnlyOption,
+	"-I":            ST_OnlyOption,
 	"--remote-name": ST_OnlyOption,
 }
 
