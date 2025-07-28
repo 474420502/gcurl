@@ -3,6 +3,7 @@ package gcurl
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -205,6 +206,7 @@ func handleMethod(c *CURL, args ...string) error {
 
 // handleData 用于处理 -d, --data, --data-ascii
 // 根据 cURL 文档，这些选项在从文件读取时会删除换行符。
+// 多个--data选项会被连接起来
 func handleData(c *CURL, args ...string) error {
 	if c.Method == "" {
 		c.Method = "POST"
@@ -232,12 +234,28 @@ func handleData(c *CURL, args ...string) error {
 		content = []byte(data)
 	}
 
-	c.Body = bytes.NewBuffer(content)
+	// 检查是否已经有body数据，如果有则追加
+	if c.Body != nil && c.Body.Type == "raw" {
+		// 获取现有内容
+		existingData := c.Body.String()
+		if existingData != "" {
+			// 对于form数据，使用&连接
+			if c.ContentType == requests.TypeURLENCODED {
+				content = []byte(existingData + "&" + string(content))
+			} else {
+				// 对于其他类型，直接连接
+				content = []byte(existingData + string(content))
+			}
+		}
+	}
+
+	c.setRawBody(content)
 	return nil
 }
 
 // handleDataBinary 用于处理 --data-binary
 // 它会发送原始数据，不会删除文件中的换行符。
+// 多个--data-binary选项会被连接起来
 func handleDataBinary(c *CURL, args ...string) error {
 	if c.Method == "" {
 		c.Method = "POST"
@@ -263,7 +281,17 @@ func handleDataBinary(c *CURL, args ...string) error {
 		// 对于其他情况，让 net/http 自动检测或保持为空。
 	}
 
-	c.Body = bytes.NewBuffer(content)
+	// 检查是否已经有body数据，如果有则追加
+	if c.Body != nil && c.Body.Type == "raw" {
+		// 获取现有内容
+		existingData := c.Body.String()
+		if existingData != "" {
+			// 对于二进制数据，直接连接（不添加&）
+			content = []byte(existingData + string(content))
+		}
+	}
+
+	c.setRawBody(content)
 
 	// 同步一下便利字段 ContentType, 确保它与 Header 一致
 	// 注意：这里不要覆盖已有的Content-Type
@@ -272,7 +300,9 @@ func handleDataBinary(c *CURL, args ...string) error {
 	}
 
 	return nil
-} // handleCompressed 用于处理 --compressed 选项
+}
+
+// handleCompressed 用于处理 --compressed 选项
 func handleCompressed(c *CURL, args ...string) error {
 	// 设置标准的 Accept-Encoding 头，告诉服务器我们接受这些压缩格式
 	// 你的 requests 库支持 gzip, deflate, 和 br
@@ -304,6 +334,12 @@ func handleConnectTimeout(c *CURL, args ...string) error {
 }
 
 // handleDataUrlencode 用于处理 --data-urlencode 选项
+// 支持以下语法格式：
+// content - URL编码内容
+// =content - URL编码内容（与上面相同）
+// name=content - URL编码内容并添加name=前缀
+// @filename - URL编码文件内容
+// name@filename - URL编码文件内容并添加name=前缀
 func handleDataUrlencode(c *CURL, args ...string) error {
 	if c.Method == "" {
 		c.Method = "POST"
@@ -315,28 +351,69 @@ func handleDataUrlencode(c *CURL, args ...string) error {
 	}
 
 	data := args[0]
-	var content []byte
+	var result string
 
-	// 检查 @filename 语法
-	if strings.HasPrefix(data, "@") {
-		filePath := data[1:]
-		fileContent, err := os.ReadFile(filePath)
+	// 解析不同的语法格式
+	if strings.HasPrefix(data, "=") {
+		// =content 格式
+		content := data[1:]
+		result = url.QueryEscape(content)
+	} else if strings.HasPrefix(data, "@") {
+		// @filename 格式
+		filename := data[1:]
+
+		// 读取文件内容
+		fileContent, err := os.ReadFile(filename)
 		if err != nil {
 			return fmt.Errorf("failed to read file for --data-urlencode: %w", err)
 		}
-		content = fileContent
+
+		result = url.QueryEscape(string(fileContent))
+	} else if !strings.Contains(data, "=") && strings.Contains(data, "@") {
+		// name@filename 格式 (没有=符号)
+		parts := strings.SplitN(data, "@", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid --data-urlencode format: %s", data)
+		}
+
+		name := parts[0]
+		filename := parts[1]
+
+		// 读取文件内容
+		fileContent, err := os.ReadFile(filename)
+		if err != nil {
+			return fmt.Errorf("failed to read file for --data-urlencode: %w", err)
+		}
+
+		result = name + "=" + url.QueryEscape(string(fileContent))
+	} else if strings.Contains(data, "=") {
+		// name=content 格式
+		parts := strings.SplitN(data, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid --data-urlencode format: %s", data)
+		}
+
+		name := parts[0]
+		content := parts[1]
+		result = name + "=" + url.QueryEscape(content)
 	} else {
-		content = []byte(data)
+		// 普通content格式
+		result = url.QueryEscape(data)
+	} // 检查是否已经有body数据，如果有则追加
+	if c.Body != nil && c.Body.Type == "raw" {
+		// 获取现有内容
+		existingData := c.Body.String()
+		if existingData != "" {
+			result = existingData + "&" + result
+		}
 	}
 
-	// --data-urlencode 会进行 URL 编码
-	// 注意：这是一个简化版本，真正的 cURL --data-urlencode 有更复杂的语法
-	// 但对于大多数用例这应该足够了
-	c.Body = bytes.NewBufferString(string(content))
+	c.setRawBodyString(result)
 	return nil
 }
 
 // handleDataRaw 用于处理 --data-raw 选项
+// 多个--data-raw选项会被连接起来
 func handleDataRaw(c *CURL, args ...string) error {
 	if c.Method == "" {
 		c.Method = "POST"
@@ -349,7 +426,23 @@ func handleDataRaw(c *CURL, args ...string) error {
 
 	// --data-raw 直接使用提供的数据，不支持 @filename 语法
 	data := args[0]
-	c.Body = bytes.NewBufferString(data)
+
+	// 检查是否已经有body数据，如果有则追加
+	if c.Body != nil && c.Body.Type == "raw" {
+		// 获取现有内容
+		existingData := c.Body.String()
+		if existingData != "" {
+			// 对于form数据，使用&连接
+			if c.ContentType == requests.TypeURLENCODED {
+				data = existingData + "&" + data
+			} else {
+				// 对于其他类型，直接连接
+				data = existingData + data
+			}
+		}
+	}
+
+	c.setRawBodyString(data)
 	return nil
 }
 
@@ -437,27 +530,41 @@ func handleForm(c *CURL, args ...string) error {
 
 	formData := args[0]
 
-	// 目前简单实现：设置 Content-Type 为 multipart/form-data
-	// 实际的 multipart 数据构建需要更复杂的逻辑
-	c.Header.Set("Content-Type", "multipart/form-data")
-	c.ContentType = "multipart/form-data"
-
-	// 将表单数据写入body（简化实现）
-	// 实际应该构建正确的 multipart 格式
-	if c.Body == nil {
-		c.Body = bytes.NewBuffer(nil)
+	// 解析form数据
+	field, err := parseFormData(formData)
+	if err != nil {
+		return fmt.Errorf("failed to parse form data: %w", err)
 	}
-	c.Body.WriteString(formData)
+
+	// 初始化multipart body数据结构（如果还没有）
+	if c.Body == nil || c.Body.Type != "multipart" {
+		c.Body = &BodyData{
+			Type:    "multipart",
+			Content: make([]*FormField, 0),
+		}
+		// 设置Content-Type（boundary会在执行时生成）
+		c.Header.Set("Content-Type", "multipart/form-data")
+		c.ContentType = "multipart/form-data"
+	}
+
+	// 添加字段到multipart数据
+	if fields, ok := c.Body.Content.([]*FormField); ok {
+		c.Body.Content = append(fields, field)
+	} else {
+		// 如果类型不匹配，重新创建
+		c.Body.Content = []*FormField{field}
+	}
 
 	return nil
 }
 
 // handleLocation 用于处理 --location / -L 选项 (重定向跟随)
 func handleLocation(c *CURL, args ...string) error {
-	// 设置一个标志表示应该跟随重定向
-	// 这个功能需要在执行阶段实现
-	// 目前只是标记这个选项被设置了
-	c.Header.Set("X-Gcurl-Follow-Redirects", "true")
+	c.FollowRedirect = true
+	// 如果MaxRedirs还是默认值，设置为一个合理的默认重定向次数
+	if c.MaxRedirs == -1 {
+		c.MaxRedirs = 30 // curl的默认值
+	}
 	return nil
 }
 

@@ -3,6 +3,7 @@ package gcurl
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -12,7 +13,106 @@ import (
 	"github.com/474420502/requests"
 )
 
-// CURL 信息结构
+// BodyData 表示不同类型的请求体数据
+type BodyData struct {
+	Type    string      // "raw", "form", "json", "urlencoded", "multipart"
+	Content interface{} // 具体内容，根据Type而不同
+}
+
+// 向后兼容方法
+func (bd *BodyData) Len() int {
+	if bd == nil {
+		return 0
+	}
+	switch bd.Type {
+	case "raw":
+		if buf, ok := bd.Content.(*bytes.Buffer); ok {
+			return buf.Len()
+		}
+	case "form", "urlencoded":
+		if str, ok := bd.Content.(string); ok {
+			return len(str)
+		}
+	case "multipart":
+		// multipart的长度需要在构建时计算，这里返回字段数量
+		if fields, ok := bd.Content.([]*FormField); ok {
+			return len(fields)
+		}
+	}
+	return 0
+}
+
+func (bd *BodyData) Read(p []byte) (n int, err error) {
+	if bd == nil {
+		return 0, io.EOF
+	}
+	switch bd.Type {
+	case "raw":
+		if buf, ok := bd.Content.(*bytes.Buffer); ok {
+			return buf.Read(p)
+		}
+	}
+	return 0, io.EOF
+}
+
+func (bd *BodyData) String() string {
+	if bd == nil {
+		return ""
+	}
+	switch bd.Type {
+	case "raw":
+		if buf, ok := bd.Content.(*bytes.Buffer); ok {
+			return buf.String()
+		}
+	case "form", "urlencoded":
+		if str, ok := bd.Content.(string); ok {
+			return str
+		}
+	case "multipart":
+		if fields, ok := bd.Content.([]*FormField); ok {
+			var parts []string
+			for _, field := range fields {
+				if field.IsFile {
+					parts = append(parts, fmt.Sprintf("%s=@%s", field.Name, field.Value))
+				} else {
+					parts = append(parts, fmt.Sprintf("%s=%s", field.Name, field.Value))
+				}
+			}
+			return strings.Join(parts, "&")
+		}
+	}
+	return ""
+}
+
+func (bd *BodyData) WriteString(s string) (n int, err error) {
+	if bd == nil {
+		return 0, fmt.Errorf("body data is nil")
+	}
+	switch bd.Type {
+	case "raw":
+		if buf, ok := bd.Content.(*bytes.Buffer); ok {
+			return buf.WriteString(s)
+		}
+	}
+	return 0, fmt.Errorf("cannot write to body type: %s", bd.Type)
+}
+
+// setRawBody 设置原始字节数据类型的Body
+func (c *CURL) setRawBody(data []byte) {
+	c.Body = &BodyData{
+		Type:    "raw",
+		Content: bytes.NewBuffer(data),
+	}
+}
+
+// setRawBodyString 设置原始字符串类型的Body
+func (c *CURL) setRawBodyString(data string) {
+	c.Body = &BodyData{
+		Type:    "raw",
+		Content: bytes.NewBufferString(data),
+	}
+}
+
 // CURL 信息结构
 type CURL struct {
 	ParsedURL *url.URL
@@ -24,7 +124,7 @@ type CURL struct {
 	Cookies []*http.Cookie // 新定义：使用指针切片，符合标准库和requests库的用法
 	// --- 修改结束 ---
 	ContentType    string
-	Body           *bytes.Buffer
+	Body           *BodyData // 改为更灵活的结构
 	Auth           *requests.BasicAuth
 	Timeout        int // 对应 --max-time, 总超时
 	ConnectTimeout int // 新增字段，对应 --connect-timeout
@@ -38,8 +138,9 @@ type CURL struct {
 	ClientKey  string // --key 客户端私钥路径
 
 	// 新增HTTP协议相关字段
-	HTTP2     bool // --http2 强制使用HTTP/2
-	MaxRedirs int  // --max-redirs 最大重定向次数 (-1表示无限制)
+	HTTP2          bool // --http2 强制使用HTTP/2
+	MaxRedirs      int  // --max-redirs 最大重定向次数 (-1表示无限制)
+	FollowRedirect bool // -L/--location 是否跟随重定向
 }
 
 // New new 一个 curl 出来
@@ -48,15 +149,16 @@ func New() *CURL {
 	u.Insecure = false
 	u.Header = make(http.Header)
 	u.CookieJar, _ = cookiejar.New(nil)
-	u.Body = bytes.NewBuffer(nil)
-	u.Timeout = 30       // 默认总超时
-	u.ConnectTimeout = 0 // 0 表示不设置，使用系统默认
-	u.LimitRate = ""     // 默认不限速
-	u.MaxRedirs = -1     // 默认无限制重定向
-	u.HTTP2 = false      // 默认不强制HTTP/2
-	u.CACert = ""        // 默认无自定义CA证书
-	u.ClientCert = ""    // 默认无客户端证书
-	u.ClientKey = ""     // 默认无客户端私钥
+	u.Body = &BodyData{Type: "raw", Content: bytes.NewBuffer(nil)}
+	u.Timeout = 30           // 默认总超时
+	u.ConnectTimeout = 0     // 0 表示不设置，使用系统默认
+	u.LimitRate = ""         // 默认不限速
+	u.MaxRedirs = -1         // 默认无限制重定向
+	u.HTTP2 = false          // 默认不强制HTTP/2
+	u.FollowRedirect = false // 默认不跟随重定向（与curl默认行为一致）
+	u.CACert = ""            // 默认无自定义CA证书
+	u.ClientCert = ""        // 默认无客户端证书
+	u.ClientKey = ""         // 默认无客户端私钥
 	// --- 为了匹配新的字段类型，初始化也做相应调整 ---
 	u.Cookies = make([]*http.Cookie, 0)
 	return u
@@ -105,10 +207,36 @@ func (curl *CURL) CreateSession() *requests.Session {
 		ses.Config().SetProxy(curl.Proxy)
 	}
 
-	// 注意：ConnectTimeout 的设置需要在requests库中添加支持
-	// 目前我们只是解析和存储这个值，实际的连接超时设置
-	// 需要requests库本身提供相应的接口
-	// TODO: 如果requests库支持连接超时配置，在这里调用相应方法
+	// 设置连接超时（如果指定了）
+	if curl.ConnectTimeout > 0 {
+		// 目前先使用总超时作为连接超时的替代方案
+		// 理想情况下应该在requests库中添加专门的SetConnectTimeout方法
+		// TODO: 在requests库中实现真正的连接超时设置
+		ses.Config().SetTimeout(curl.ConnectTimeout)
+	}
+
+	// 设置重定向策略
+	if curl.FollowRedirect {
+		// 设置最大重定向次数
+		maxRedirs := curl.MaxRedirs
+		if maxRedirs < 0 {
+			maxRedirs = 30 // 默认值
+		}
+		// TODO: 在requests库中添加SetRedirectPolicy方法
+		// ses.Config().SetRedirectPolicy(maxRedirs)
+		// 目前先用注释标记这个功能需要实现
+	}
+
+	// 设置TLS/SSL证书配置
+	if curl.CACert != "" {
+		// TODO: 在requests库中添加SetCACert方法
+		// ses.Config().SetCACert(curl.CACert)
+	}
+
+	if curl.ClientCert != "" && curl.ClientKey != "" {
+		// TODO: 在requests库中添加SetClientCerts方法
+		// ses.Config().SetClientCerts(curl.ClientCert, curl.ClientKey)
+	}
 
 	return ses
 }
@@ -143,7 +271,36 @@ func (curl *CURL) CreateTemporary(ses *requests.Session) *requests.Temporary {
 	}
 
 	wf.SetContentType(curl.ContentType)
-	wf.SetBody(curl.Body)
+
+	// 根据Body类型设置不同的请求体
+	if curl.Body != nil {
+		switch curl.Body.Type {
+		case "raw":
+			if buf, ok := curl.Body.Content.(*bytes.Buffer); ok {
+				wf.SetBody(buf)
+			}
+		case "multipart":
+			if fields, ok := curl.Body.Content.([]*FormField); ok {
+				// 将FormField转换为requests库支持的格式
+				formData := make(map[string]interface{})
+				for _, field := range fields {
+					if field.IsFile {
+						// 文件上传
+						formData[field.Name] = field.Value // requests库会处理文件路径
+					} else {
+						// 普通字段
+						formData[field.Name] = field.Value
+					}
+				}
+				wf.SetBodyFormData(formData)
+			}
+		case "form", "urlencoded":
+			if str, ok := curl.Body.Content.(string); ok {
+				wf.SetBody(strings.NewReader(str))
+			}
+		}
+	}
+
 	return wf
 }
 

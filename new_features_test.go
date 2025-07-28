@@ -30,12 +30,11 @@ func TestNewFeatures(t *testing.T) {
 			t.Fatalf("解析错误: %v", err)
 		}
 
-		followRedirects := c.Header.Get("X-Gcurl-Follow-Redirects")
-		if followRedirects != "true" {
-			t.Errorf("期望设置重定向标志，得到: %s", followRedirects)
+		if !c.FollowRedirect {
+			t.Errorf("期望设置重定向标志为true，得到: %v", c.FollowRedirect)
 		}
 
-		t.Logf("✓ 重定向跟随功能正常 - URL: %s, Follow: %s", c.ParsedURL.String(), followRedirects)
+		t.Logf("✓ 重定向跟随功能正常 - URL: %s, Follow: %v", c.ParsedURL.String(), c.FollowRedirect)
 	})
 
 	t.Run("最大时间功能", func(t *testing.T) {
@@ -79,7 +78,7 @@ func TestNewFeatures(t *testing.T) {
 		if err != nil {
 			t.Fatalf("解析-L选项错误: %v", err)
 		}
-		if c2.Header.Get("X-Gcurl-Follow-Redirects") != "true" {
+		if !c2.FollowRedirect {
 			t.Errorf("-L选项未正确设置重定向标志")
 		}
 
@@ -114,7 +113,7 @@ func TestNewFeatures(t *testing.T) {
 			t.Errorf("期望代理地址是http://proxy:8080，得到: %s", c.Proxy)
 		}
 
-		if c.Header.Get("X-Gcurl-Follow-Redirects") != "true" {
+		if !c.FollowRedirect {
 			t.Errorf("期望设置重定向标志")
 		}
 
