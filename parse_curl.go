@@ -13,36 +13,52 @@ import (
 )
 
 // CURL 信息结构
+// CURL 信息结构
 type CURL struct {
 	ParsedURL *url.URL
 	Method    string
 	Header    http.Header
 	CookieJar http.CookieJar
-	Cookies   []*http.Cookie
+	// --- 请做如下修改 ---
+	// Cookies   []http.Cookie // 旧定义
+	Cookies []*http.Cookie // 新定义：使用指针切片，符合标准库和requests库的用法
+	// --- 修改结束 ---
+	ContentType    string
+	Body           *bytes.Buffer
+	Auth           *requests.BasicAuth
+	Timeout        int // 对应 --max-time, 总超时
+	ConnectTimeout int // 新增字段，对应 --connect-timeout
+	Insecure       bool
+	Proxy          string // 新增字段，用于存储代理地址
+	LimitRate      string // 新增字段，用于存储传输速度限制
 
-	ContentType string
-	Body        *bytes.Buffer
+	// 新增SSL/TLS相关字段
+	CACert     string // --cacert 自定义CA证书路径
+	ClientCert string // --cert 客户端证书路径
+	ClientKey  string // --key 客户端私钥路径
 
-	Auth     *requests.BasicAuth
-	Timeout  int // second
-	Insecure bool
-
-	// ITask   string
-	// Crontab string
-	// Name    string
+	// 新增HTTP协议相关字段
+	HTTP2     bool // --http2 强制使用HTTP/2
+	MaxRedirs int  // --max-redirs 最大重定向次数 (-1表示无限制)
 }
 
 // New new 一个 curl 出来
 func New() *CURL {
-
 	u := &CURL{}
 	u.Insecure = false
-
 	u.Header = make(http.Header)
 	u.CookieJar, _ = cookiejar.New(nil)
 	u.Body = bytes.NewBuffer(nil)
-	u.Timeout = 30
-
+	u.Timeout = 30       // 默认总超时
+	u.ConnectTimeout = 0 // 0 表示不设置，使用系统默认
+	u.LimitRate = ""     // 默认不限速
+	u.MaxRedirs = -1     // 默认无限制重定向
+	u.HTTP2 = false      // 默认不强制HTTP/2
+	u.CACert = ""        // 默认无自定义CA证书
+	u.ClientCert = ""    // 默认无客户端证书
+	u.ClientKey = ""     // 默认无客户端私钥
+	// --- 为了匹配新的字段类型，初始化也做相应调整 ---
+	u.Cookies = make([]*http.Cookie, 0)
 	return u
 }
 
@@ -66,18 +82,33 @@ func Execute(curlbash string) (*requests.Response, error) {
 // CreateSession 创建Session
 func (curl *CURL) CreateSession() *requests.Session {
 	ses := requests.NewSession()
+
+	// 设置基本配置
 	ses.SetHeader(curl.Header)
 	ses.SetCookies(curl.ParsedURL, curl.Cookies)
 
+	// 设置总超时
 	ses.Config().SetTimeout(curl.Timeout)
 
+	// 设置认证
 	if curl.Auth != nil {
 		ses.Config().SetBasicAuth(curl.Auth)
 	}
 
+	// 设置跳过TLS验证
 	if curl.Insecure {
 		ses.Config().SetInsecure(curl.Insecure)
 	}
+
+	// 设置代理（包括SOCKS5）
+	if curl.Proxy != "" {
+		ses.Config().SetProxy(curl.Proxy)
+	}
+
+	// 注意：ConnectTimeout 的设置需要在requests库中添加支持
+	// 目前我们只是解析和存储这个值，实际的连接超时设置
+	// 需要requests库本身提供相应的接口
+	// TODO: 如果requests库支持连接超时配置，在这里调用相应方法
 
 	return ses
 }
@@ -193,35 +224,6 @@ func CheckCmdForamt(scurl string) bool {
 	return recheckCmdFormat.MatchString(scurl)
 }
 
-func checkCmdForamt2(scurl string) bool {
-	i := 0
-	count := 0
-	for i < len(scurl) {
-		c := scurl[i]
-		if c == '^' {
-			if i+3 < len(scurl) && scurl[i+1] == '\\' && scurl[i+2] == '^' {
-				// 处理 ^\\^"
-				count += 4
-				i += 4
-			} else if i+2 < len(scurl) && scurl[i+2] == '^' {
-				// ^%^ 处理这种字符串转换
-				count += 3
-				i += 3
-			} else if i+1 < len(scurl) {
-				// 处理 ^" 特殊的把符号转换为regexp能识别的格式
-				count += 2
-				i += 2
-			} else {
-				i++
-			}
-		} else {
-			i++
-		}
-	}
-
-	return count > 0
-}
-
 // Parse This method is compatible with both cmd and bash formats
 // but it merely forcibly converts cmd to bash.
 // It's recommended to use ParseBash instead.
@@ -233,102 +235,15 @@ func Parse(scurl string) (curl *CURL, err error) {
 	return ParseBash(scurl)
 }
 
-// ParseBash curl bash  *Supports copying as cURL command only (Bash)
-func ParseBash(scurl string) (curl *CURL, err error) {
-	opts := parseCurlCommandStr(scurl)
-	// args := parseCommandArgsEx(scurl)
-	// if !opts.compare(args) {
-	// 	log.Println(opts, args)
-	// }
-	// log.Println(opts)
+func ParseBash(scurl string) (*CURL, error) {
+	// 1. 使用新的纯Go分词器
+	lexer := NewLexer(scurl)
+	if err := lexer.Parse(); err != nil {
+		return nil, fmt.Errorf("failed to tokenize curl command: %w", err)
+	}
+	args := lexer.Tokens
 
-	return ParseOptions(opts)
-
-	// executor := newPQueueExecute()
-
-	// if len(scurl) <= 4 {
-	// 	err = fmt.Errorf("scurl error: %s", scurl)
-	// 	log.Println(err)
-	// 	return nil, err
-	// }
-
-	// if scurl[0] == '"' && scurl[len(scurl)-1] == '"' {
-	// 	scurl = strings.Trim(scurl, `"`)
-	// } else if scurl[0] == '\'' && scurl[len(scurl)-1] == '\'' {
-	// 	scurl = strings.Trim(scurl, `'`)
-	// }
-
-	// scurl = strings.TrimSpace(scurl)
-	// scurl = strings.TrimLeft(scurl, "curl")
-
-	// pattern := `((?:http|https)://[^\n\s]+(?:[\n \t]|$))|` +
-	// 	`(-(?:O|L|I|s|k|C|4|6)(?:[\n \t]|$))|` +
-	// 	`(--(?:remote-name|location|head|silent|insecure|continue-at|ipv4|ipv6|compressed)(?:[\n \t]|$))|` +
-	// 	`(--data-binary +\$.+--\\r\\n'(?:[\n \t]|$))|` +
-	// 	`(--[^ ]+ +'[^']+'(?:[\n \t]|$))|` +
-	// 	`(--[^ ]+ +"[^"]+"(?:[\n \t]|$))|` +
-	// 	`(--[^ ]+ +[^ ]+)|` +
-	// 	`(-[A-Za-z] +'[^']+'(?:[\n \t]|$))|` +
-	// 	`(-[A-Za-z] +"[^"]+"(?:[\n \t]|$))|` +
-	// 	`(-[A-Za-z] +[^ ]+)|` +
-	// 	`([\n \t]'[^']+'(?:[\n \t]|$))|` +
-	// 	`([\n \t]"[^"]+"(?:[\n \t]|$))|` +
-	// 	`(--[a-z]+ {0,})`
-
-	// re := regexp.MustCompile(pattern)
-	// matches := re.FindAllStringSubmatch(scurl, -1)
-	// if len(matches) != 0 {
-	// 	curl = New()
-	// }
-	// // args := parseCurlCommandStr(scurl)
-	// // log.Println(args)
-	// for _, match := range matches {
-	// 	for i, matchedContent := range match[1:] {
-	// 		// 忽略空字符串
-	// 		if matchedContent == "" {
-	// 			continue
-	// 		}
-	// 		matchedContent = strings.Trim(matchedContent, " \n\t")
-
-	// 		// 使用 MatchGroup 常量替换 matchedGroup 字符串
-	// 		switch MatchGroup(i) {
-	// 		case HTTPHTTPS, NewlineQuotes, NewlineDoubleQuotes:
-	// 			purl, err := url.Parse(strings.Trim(matchedContent, `"'`))
-	// 			if err != nil {
-	// 				log.Println(err)
-	// 				return nil, err
-	// 			}
-	// 			curl.ParsedURL = purl
-
-	// 		case DataBinary,
-	// 			LongArgQuotes, LongArgDoubleQuotes, LongArgNoQuotes,
-	// 			ShortArgQuotes, ShortArgDoubleQuotes, ShortArgNoQuotes,
-	// 			LongArgNoArg:
-	// 			exec := judgeOptions(curl, matchedContent)
-	// 			if exec != nil {
-	// 				executor.Push(exec)
-	// 			}
-	// 		case ShortNoArg, LongNoArgSpecial:
-	// 			switch matchedContent {
-	// 			case "-I", "--head":
-	// 				curl.Method = "HEAD"
-	// 			default:
-	// 				log.Println(matchedContent, "this option is invalid.")
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// for executor.Len() > 0 {
-	// 	exec := executor.Pop()
-	// 	if err = exec.Execute(); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-
-	// if curl.Method == "" {
-	// 	curl.Method = "GET"
-	// }
-
-	// return curl, nil
+	// 2. 将分词结果传递给选项处理器
+	// (此部分将在下一节中重构)
+	return buildFromArgs(args)
 }

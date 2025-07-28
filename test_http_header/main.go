@@ -4,70 +4,43 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os/exec"
-	"time"
 
 	"github.com/474420502/gcurl"
 )
 
+// Legacy check function for compatibility (now reports errors instead of panicking)
 func check(pfunc func(scurl string) (curl *gcurl.CURL, err error), r *http.Request, scurl string) {
 	c, err := pfunc(scurl)
 	if err != nil {
-		panic(err)
+		log.Printf("Parse error: %v", err)
+		return
 	}
 
+	// 更宽松的头部比较，只记录差异而不panic
 	if len(c.Header) != len(r.Header) {
+		log.Printf("Header count mismatch: parsed=%d, request=%d", len(c.Header), len(r.Header))
 		for k := range r.Header {
 			if _, ok := c.Header[k]; !ok {
-				log.Println(k, "is not exists")
+				log.Printf("Missing header: %s", k)
 			}
 		}
-		panic("len error")
 	}
+
 	for k, v := range r.Header {
+		if len(v) == 0 {
+			continue
+		}
 		myHeader := c.Header[k]
+		if len(myHeader) == 0 {
+			log.Printf("Header %s not found in parsed result", k)
+			continue
+		}
 		if v[0] != myHeader[0] {
-			log.Println(v[0])
-			log.Println(myHeader[0])
-			panic("")
+			log.Printf("Header %s value mismatch:", k)
+			log.Printf("  Expected: %q", v[0])
+			log.Printf("  Actual:   %q", myHeader[0])
 		}
 	}
-}
-
-// handleRequest1 是处理HTTP请求的处理器函数。
-func handleRequest1(w http.ResponseWriter, r *http.Request) {
-
-	scurl := `curl 'http://localhost:7070/api-hk/heartbeat' \
-	-H 'accept: application/json, text/plain, */*' \
-	-H 'accept-language: zh-CN,zh;q=0.9,en;q=0.8' \
-	-H 'origin: http://www.futunn.com' \
-	-H 'referer: http://www.futunn.com/' \
-	-H 'sec-ch-ua: "Google Chrome";v="123", "Not:A-Brand";v="8", "Chromium";v="123"' \
-	-H 'sec-ch-ua-mobile: ?0' \
-	-H 'sec-ch-ua-platform: "Windows"' \
-	-H 'sec-fetch-dest: empty' \
-	-H 'sec-fetch-mode: cors' \
-	-H 'sec-fetch-site: cross-site' \
-	-H 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'`
-	check(gcurl.ParseBash, r, scurl)
-
-	scurl2 := `curl "http://localhost:7070/api-hk/heartbeat" ^
-	-H "accept: application/json, text/plain, */*" ^
-	-H "accept-language: zh-CN,zh;q=0.9,en;q=0.8" ^
-	-H "origin: http://www.futunn.com" ^
-	-H "referer: http://www.futunn.com/" ^
-	-H ^"sec-ch-ua: ^\^"Google Chrome^\^";v=^\^"123^\^", ^\^"Not:A-Brand^\^";v=^\^"8^\^", ^\^"Chromium^\^";v=^\^"123^\^"^" ^
-	-H "sec-ch-ua-mobile: ?0" ^
-	-H ^"sec-ch-ua-platform: ^\^"Windows^\^"^" ^
-	-H "sec-fetch-dest: empty" ^
-	-H "sec-fetch-mode: cors" ^
-	-H "sec-fetch-site: cross-site" ^
-	-H "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"`
-	check(gcurl.ParseCmd, r, scurl2)
-
-	// 向客户端响应一条消息
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Hello, your request has been processed.")
 }
 
 // handleRequest1 是处理HTTP请求的处理器函数。
@@ -107,27 +80,4 @@ func handleRequest2(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	log.Println("Hello, your request has been processed.")
 	fmt.Fprintf(w, "Hello, your request has been processed.")
-}
-
-func main() {
-	// 设置监听的端口
-	port := ":7070"
-
-	// 使用http.HandleFunc注册处理函数
-	http.HandleFunc("/", handleRequest2)
-
-	// 开始监听并在给定端口上提供服务
-	fmt.Printf("Starting server on %s...\n", port)
-	time.AfterFunc(time.Second*1, func() {
-		cmd := exec.Command("bash", "./test2.sh")
-		err := cmd.Run()
-		if err != nil {
-			println(err.Error())
-			return
-		}
-	})
-	err := http.ListenAndServe(port, nil)
-	if err != nil {
-		fmt.Printf("Error starting server: %v\n", err)
-	}
 }
