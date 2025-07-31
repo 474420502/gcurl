@@ -31,7 +31,7 @@ A powerful Go library that converts cURL commands into Go HTTP requests with ful
 ## 📦 Installation
 
 ```bash
-go get github.com/474420502/gcurl
+go get github.com/474420502/gcurl@v1.1.0
 ```
 
 ## 🎯 Quick Start
@@ -872,7 +872,17 @@ go vet ./...
 - Integration with popular Go frameworks
 - Advanced debugging and profiling tools
 
-## 📄 License
+## � Version History
+
+### v1.1.0 (Current)
+- ✅ Comprehensive file output support (`-o`, `-O`, `--output-dir`, etc.)
+- ✅ Complete Digest Authentication implementation
+- ✅ HTTP protocol version control
+- ✅ Enhanced debugging capabilities
+- ✅ Improved test coverage (79.1%)
+- ✅ Production-ready stability
+
+## �📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
