@@ -9,9 +9,10 @@ const (
 )
 
 var skipList = map[string]SkipType{
-	"-O":            ST_OnlyOption,
-	"-I":            ST_OnlyOption,
-	"--remote-name": ST_OnlyOption,
+	// 已实现的选项已从跳过列表中移除：
+	// "-O": ST_OnlyOption,           // 现在支持 --remote-name
+	// "--remote-name": ST_OnlyOption, // 现在支持 --remote-name
+	// "-I": ST_OnlyOption,           // 现在支持 --include
 }
 
 func checkInSkipList(optstr string) SkipType {

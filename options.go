@@ -181,6 +181,42 @@ func init() {
 	http2Spec := OptionSpec{Handler: handleHTTP2, NumArgs: 0}
 	optionRegistry["--http2"] = http2Spec
 
+	// --http1.1 (强制HTTP/1.1)
+	http11Spec := OptionSpec{Handler: handleHTTP11, NumArgs: 0}
+	optionRegistry["--http1.1"] = http11Spec
+
+	// --http1.0 (强制HTTP/1.0)
+	http10Spec := OptionSpec{Handler: handleHTTP10, NumArgs: 0}
+	optionRegistry["--http1.0"] = http10Spec
+
+	// 文件输出相关选项
+	// -o/--output (指定输出文件)
+	outputSpec := OptionSpec{Handler: handleOutput, NumArgs: 1}
+	optionRegistry["-o"] = outputSpec
+	optionRegistry["--output"] = outputSpec
+
+	// -O/--remote-name (使用远程文件名)
+	remoteNameSpec := OptionSpec{Handler: handleRemoteName, NumArgs: 0}
+	optionRegistry["-O"] = remoteNameSpec
+	optionRegistry["--remote-name"] = remoteNameSpec
+
+	// --output-dir (指定输出目录)
+	outputDirSpec := OptionSpec{Handler: handleOutputDir, NumArgs: 1}
+	optionRegistry["--output-dir"] = outputDirSpec
+
+	// --create-dirs (自动创建目录)
+	createDirsSpec := OptionSpec{Handler: handleCreateDirs, NumArgs: 0}
+	optionRegistry["--create-dirs"] = createDirsSpec
+
+	// --remove-on-error (出错时删除文件)
+	removeOnErrorSpec := OptionSpec{Handler: handleRemoveOnError, NumArgs: 0}
+	optionRegistry["--remove-on-error"] = removeOnErrorSpec
+
+	// -C/--continue-at (断点续传)
+	continueAtSpec := OptionSpec{Handler: handleContinueAt, NumArgs: 1}
+	optionRegistry["-C"] = continueAtSpec
+	optionRegistry["--continue-at"] = continueAtSpec
+
 	// 在这里可以继续注册其他选项, 例如 --user-agent
 }
 
@@ -718,6 +754,21 @@ func handleClientKey(c *CURL, args ...string) error {
 // handleHTTP2 用于处理 --http2 选项 (强制HTTP/2)
 func handleHTTP2(c *CURL, args ...string) error {
 	c.HTTP2 = true
+	c.HTTPVersion = HTTPVersion2
+	return nil
+}
+
+// handleHTTP11 用于处理 --http1.1 选项 (强制HTTP/1.1)
+func handleHTTP11(c *CURL, args ...string) error {
+	c.HTTP2 = false
+	c.HTTPVersion = HTTPVersion11
+	return nil
+}
+
+// handleHTTP10 用于处理 --http1.0 选项 (强制HTTP/1.0)
+func handleHTTP10(c *CURL, args ...string) error {
+	c.HTTP2 = false
+	c.HTTPVersion = HTTPVersion10
 	return nil
 }
 
@@ -759,5 +810,60 @@ func handleSilent(c *CURL, args ...string) error {
 // handleTrace 用于处理 --trace 选项 (追踪模式)
 func handleTrace(c *CURL, args ...string) error {
 	c.Trace = true
+	return nil
+}
+
+// handleOutput 用于处理 -o, --output 选项 (指定输出文件)
+func handleOutput(c *CURL, args ...string) error {
+	c.OutputFile = args[0]
+	return nil
+}
+
+// handleRemoteName 用于处理 -O, --remote-name 选项 (使用远程文件名)
+func handleRemoteName(c *CURL, args ...string) error {
+	c.RemoteName = true
+	return nil
+}
+
+// handleOutputDir 用于处理 --output-dir 选项 (指定输出目录)
+func handleOutputDir(c *CURL, args ...string) error {
+	c.OutputDir = args[0]
+	return nil
+}
+
+// handleCreateDirs 用于处理 --create-dirs 选项 (自动创建目录)
+func handleCreateDirs(c *CURL, args ...string) error {
+	c.CreateDirs = true
+	return nil
+}
+
+// handleRemoveOnError 用于处理 --remove-on-error 选项 (出错时删除文件)
+func handleRemoveOnError(c *CURL, args ...string) error {
+	c.RemoveOnError = true
+	return nil
+}
+
+// handleContinueAt 用于处理 -C, --continue-at 选项 (断点续传)
+func handleContinueAt(c *CURL, args ...string) error {
+	continueAt := args[0]
+
+	// 支持 "-" 表示自动检测文件大小
+	if continueAt == "-" {
+		// 自动检测模式，设置为-1作为标记
+		c.ContinueAt = -1
+		return nil
+	}
+
+	// 解析字节偏移量
+	offset, err := strconv.ParseInt(continueAt, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid continue-at value: %s", continueAt)
+	}
+
+	if offset < 0 {
+		return fmt.Errorf("continue-at offset must be non-negative: %d", offset)
+	}
+
+	c.ContinueAt = offset
 	return nil
 }

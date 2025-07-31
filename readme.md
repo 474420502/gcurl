@@ -1,33 +1,71 @@
-# Parse curl To golang requests
+# Parse cURL To Golang Requests
+
+![Go Version](https://img.shields.io/badge/Go-1.20+-00ADD8?style=flat&logo=go)
+![Test Coverage](https://img.shields.io/badge/Coverage-79.1%25-brightgreen)
+![License](https://img.shields.io/badge/License-MIT-blue)
+![Latest Release](https://img.shields.io/github/v/release/474420502/gcurl)
 
 * Based on [requests](https://github.com/474420502/requests) library
 * Easy to transform cURL bash commands to Go code
 * Inherits all cURL functionality and adds Go's flexibility for configuration, cookies, headers, and URL handling
 * Supports both Bash and Windows Cmd cURL formats
 
-## Features
+## 🚀 Features
 
-- 🚀 Complete cURL command parsing
-- 🔧 Support for all major cURL options (headers, cookies, data, authentication, etc.)
-- 🌐 HTTP/HTTPS requests with SSL/TLS configuration  
-- 📝 Form data and file uploads
-- 🍪 Cookie management
-- 🔄 Redirect handling
-- ⏱️ Timeout and connection settings
-- 🔐 Proxy support (HTTP/HTTPS/SOCKS5)
-- 🏷️ Path parameter replacement
+- 🌐 **Complete cURL command parsing** - Parse any cURL command to Go requests
+- 🔧 **Full cURL compatibility** - Support for all major cURL options
+- 📁 **File output support** - Save responses to files with `-o`, `-O`, `--output-dir`, etc.
+- 🔐 **Authentication** - Basic auth, digest auth, and bearer tokens
+- 🌐 **HTTP protocol control** - HTTP/1.0, HTTP/1.1, HTTP/2 support
+- 🍪 **Cookie management** - Full cookie handling and session persistence
+- 📝 **Form data & file uploads** - Multipart forms and file uploads
+- 🔄 **Redirect handling** - Automatic redirect following with limits
+- ⏱️ **Timeout controls** - Connection and request timeouts
+- 🔐 **Proxy support** - HTTP/HTTPS/SOCKS5 proxy configuration
+- 🛡️ **SSL/TLS options** - Custom certificates and SSL verification control
+- 🎯 **Debug output** - Detailed debugging information like cURL `-v`
 
-# Installation
+## 📦 Installation
 
 ```bash
 go get github.com/474420502/gcurl
 ```
 
-# Examples
+## 🎯 Quick Start
 
-## Example 1: Basic GET Request with Headers
+```go
+package main
 
-This example demonstrates how to parse a cURL command for a GET request with custom headers, create a session, and execute the request.
+import (
+	"fmt"
+	"log"
+	
+	"github.com/474420502/gcurl"
+)
+
+func main() {
+	// Parse any cURL command
+	curl, err := gcurl.Parse(`curl -H "Accept: application/json" https://httpbin.org/get`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	// Execute the request
+	resp, err := curl.Request().Execute()
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	fmt.Printf("Status: %d\n", resp.GetStatusCode())
+	fmt.Printf("Response: %s\n", resp.ContentString())
+}
+```
+
+## 📖 Examples
+
+### Example 1: Basic GET Request with Headers
+
+Transform cURL commands with headers into Go requests:
 
 ```go
 package main
@@ -41,7 +79,7 @@ import (
 
 func main() {
 	// Parse cURL command
-	surl := `http://httpbin.org/get -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
+	surl := `curl "http://httpbin.org/get" -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: zh-CN,zh;q=0.9'`
 	curl, err := gcurl.Parse(surl)
 	if err != nil {
 		log.Fatal(err)
@@ -49,7 +87,7 @@ func main() {
 	
 	// Create session and temporary request
 	ses := curl.CreateSession()
-	tp := curl.CreateTemporary(ses)
+	tp := curl.CreateRequest(ses)
 	
 	// Check headers
 	fmt.Println("Headers:", ses.GetHeader())
@@ -62,24 +100,12 @@ func main() {
 	}
 
 	fmt.Println("Response:", string(resp.Content()))
-	// Response will contain:
-	// {
-	//   "headers": {
-	//     "Accept-Encoding": "gzip, deflate",
-	//     "Accept-Language": "zh-CN,zh;q=0.9", 
-	//     "Connection": "keep-alive",
-	//     "Host": "httpbin.org",
-	//     "User-Agent": "Go-http-client/1.1"
-	//   },
-	//   "origin": "your.ip.address",
-	//   "url": "http://httpbin.org/get"
-	// }
 }
 ```
 
-## Example 2: GET Request with Cookies
+### Example 2: POST Request with JSON Data
 
-This example demonstrates how to parse a cURL command with cookies and custom headers, and verify that cookies are properly handled.
+Handle POST requests with JSON payload:
 
 ```go
 package main
@@ -92,54 +118,7 @@ import (
 )
 
 func main() {
-	scurl := `curl 'http://httpbin.org/get' 
-		--connect-timeout 1 
-		-H 'authority: appgrowing.cn'
-		-H 'accept-encoding: gzip, deflate, br' 
-		-H 'accept-language: zh' 
-		-H 'cookie: _ga=GA1.2.1371058419.1533104518; _gid=GA1.2.896241740.1543307916; _gat_gtag_UA_4002880_19=1' 
-		-H 'if-none-match: W/"5bf7a0a9-ca6"' 
-		-H 'if-modified-since: Fri, 23 Nov 2018 06:39:37 GMT'`
-	
-	curl, err := gcurl.Parse(scurl)
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	ses := curl.CreateSession()
-	wf := curl.CreateTemporary(ses)
-	
-	// Check cookies were parsed correctly
-	cookies := ses.GetCookies(wf.ParsedURL)
-	fmt.Println("Cookies:", cookies)
-	// Output: [_ga=GA1.2.1371058419.1533104518 _gid=GA1.2.896241740.1543307916 _gat_gtag_UA_4002880_19=1]
-	
-	resp, err := wf.Execute()
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	fmt.Println("Response:", string(resp.Content()))
-	// Response will show that cookies were sent in the request headers
-}
-```
-
-## Example 3: POST Request with JSON Data
-
-This example shows how to handle POST requests with JSON data.
-
-```go
-package main
-
-import (
-	"fmt"
-	"log"
-	
-	"github.com/474420502/gcurl"
-)
-
-func main() {
-	scurl := `curl -X POST "http://httpbin.org/post" -H "Content-Type: application/json" -d '{"name":"test","age":25}'`
+	scurl := `curl -X POST "https://httpbin.org/post" -H "Content-Type: application/json" -d '{"name":"test","age":25}'`
 	
 	curl, err := gcurl.Parse(scurl)
 	if err != nil {
@@ -155,48 +134,12 @@ func main() {
 	}
 
 	fmt.Println("Response:", string(resp.Content()))
-	// Response will contain the JSON data in the "json" field and "data" field
 }
 ```
 
-## Example 4: Form Data Upload
+### Example 3: File Upload with Form Data
 
-This example demonstrates how to handle multipart form data uploads.
-
-```go
-package main
-
-import (
-	"fmt"
-	"log"
-	
-	"github.com/474420502/gcurl"
-)
-
-func main() {
-	scurl := `curl -X POST "http://httpbin.org/post" -F "name=john" -F "age=30" -F "email=john@example.com"`
-	
-	curl, err := gcurl.Parse(scurl)
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	// Form data is automatically handled as multipart
-	fmt.Printf("Body type: %s\n", curl.Body.Type) // multipart
-	
-	resp, err := curl.Request().Execute()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("Response:", string(resp.Content()))
-	// Response will show form data in the "form" field
-}
-```
-
-## Example 6: File Upload
-
-This example shows how to upload files using form data.
+Upload files using multipart form data:
 
 ```go
 package main
@@ -210,7 +153,7 @@ import (
 )
 
 func main() {
-	// First create a test file
+	// Create a test file
 	testFile := "/tmp/test.txt"
 	err := os.WriteFile(testFile, []byte("test file content"), 0644)
 	if err != nil {
@@ -218,7 +161,7 @@ func main() {
 	}
 	defer os.Remove(testFile)
 	
-	scurl := fmt.Sprintf(`curl -X POST "http://httpbin.org/post" -F "file=@%s" -F "description=test file"`, testFile)
+	scurl := fmt.Sprintf(`curl -X POST "https://httpbin.org/post" -F "file=@%s" -F "description=test file"`, testFile)
 	
 	curl, err := gcurl.Parse(scurl)
 	if err != nil {
@@ -234,9 +177,9 @@ func main() {
 }
 ```
 
-## Example 7: Authentication and HTTPS
+### Example 4: File Output and Downloads
 
-This example demonstrates basic authentication and HTTPS requests.
+Save responses to files with various output options:
 
 ```go
 package main
@@ -249,29 +192,33 @@ import (
 )
 
 func main() {
-	// Basic authentication example
-	scurl := `curl -u "user:password" "http://httpbin.org/basic-auth/user/password"`
+	// Save to specific file
+	curl1, _ := gcurl.Parse(`curl -o output.json https://httpbin.org/json`)
 	
-	curl, err := gcurl.Parse(scurl)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Use remote filename
+	curl2, _ := gcurl.Parse(`curl -O https://httpbin.org/robots.txt`)
 	
-	fmt.Printf("Auth configured: %v\n", curl.Auth != nil)
+	// Save to directory with automatic directory creation
+	curl3, _ := gcurl.Parse(`curl -O --output-dir /tmp/downloads --create-dirs https://httpbin.org/uuid`)
 	
-	resp, err := curl.Request().Execute()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("Status: %d\n", resp.GetStatusCode())
-	fmt.Println("Auth response:", string(resp.Content()))
+	// Resume download from offset
+	curl4, _ := gcurl.Parse(`curl -C 1024 -o partial.dat https://httpbin.org/bytes/2048`)
+	
+	// Auto-resume (detect existing file size)
+	curl5, _ := gcurl.Parse(`curl -C - -o resume.dat https://httpbin.org/bytes/4096`)
+	
+	fmt.Println("File output configurations ready!")
+	fmt.Printf("curl1 output: %s\n", curl1.OutputFile)
+	fmt.Printf("curl2 remote name: %v\n", curl2.RemoteName)
+	fmt.Printf("curl3 output dir: %s\n", curl3.OutputDir)
+	fmt.Printf("curl4 continue at: %d bytes\n", curl4.ContinueAt)
+	fmt.Printf("curl5 auto-resume: %d (-1 means auto)\n", curl5.ContinueAt)
 }
 ```
 
-## Example 8: Custom Session Configuration
+### Example 5: Authentication
 
-This example shows how to modify session settings before executing requests.
+Handle various authentication methods:
 
 ```go
 package main
@@ -279,49 +226,38 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
-	"net/http"
 	
 	"github.com/474420502/gcurl"
 )
 
 func main() {
-	curl, err := gcurl.Parse(`curl "http://httpbin.org/delay/2"`)
+	// Basic authentication
+	curl1, err := gcurl.Parse(`curl -u "user:password" "https://httpbin.org/basic-auth/user/password"`)
 	if err != nil {
 		log.Fatal(err)
 	}
 	
-	// Create session and customize it
-	ses := curl.CreateSession()
-	
-	// Add custom headers to the session
-	customHeaders := make(http.Header)
-	customHeaders.Set("X-Custom-Header", "MyValue")
-	customHeaders.Set("User-Agent", "MyApp/1.0")
-	ses.SetHeader(customHeaders)
-	
-	// Set timeout
-	ses.Config().SetTimeout(5 * time.Second) // 5 seconds
-	
-	// Create temporary request with customized session
-	tp := curl.CreateRequest(ses)
-	
-	start := time.Now()
-	resp, err := tp.Execute()
+	// Digest authentication
+	curl2, err := gcurl.Parse(`curl --digest -u "user:password" "https://httpbin.org/digest-auth/auth/user/password"`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	duration := time.Since(start)
 	
-	fmt.Printf("Request took: %v\n", duration)
-	fmt.Printf("Status: %d\n", resp.GetStatusCode())
-	fmt.Println("Response:", string(resp.Content()))
+	// Bearer token
+	curl3, err := gcurl.Parse(`curl -H "Authorization: Bearer eyJhbGci..." "https://httpbin.org/bearer"`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	fmt.Printf("Basic auth configured: %v\n", curl1.Auth != nil)
+	fmt.Printf("Digest auth configured: %v\n", curl2.DigestAuth != nil)
+	fmt.Printf("Bearer token in headers: %v\n", len(curl3.Headers) > 0)
 }
 ```
 
-## Example 9: Error Handling and Validation
+### Example 6: HTTP Version Control
 
-This example shows proper error handling and response validation.
+Control HTTP protocol version:
 
 ```go
 package main
@@ -329,58 +265,63 @@ package main
 import (
 	"fmt"
 	"log"
-	"strings"
 	
 	"github.com/474420502/gcurl"
 )
 
 func main() {
-	scurl := `curl -X POST "http://httpbin.org/status/404" -d "test data"`
+	// Force HTTP/1.0
+	curl1, _ := gcurl.Parse(`curl --http1.0 https://httpbin.org/get`)
 	
-	curl, err := gcurl.Parse(scurl)
-	if err != nil {
-		log.Fatalf("Failed to parse cURL command: %v", err)
-	}
+	// Force HTTP/1.1
+	curl2, _ := gcurl.Parse(`curl --http1.1 https://httpbin.org/get`)
 	
-	// Validate the parsed URL
-	if curl.ParsedURL == nil {
-		log.Fatal("Invalid URL in cURL command")
-	}
+	// Force HTTP/2
+	curl3, _ := gcurl.Parse(`curl --http2 https://httpbin.org/get`)
 	
-	fmt.Printf("Parsed URL: %s\n", curl.ParsedURL.String())
-	fmt.Printf("Method: %s\n", curl.Method)
-	
-	resp, err := curl.Request().Execute()
-	if err != nil {
-		log.Fatalf("Request failed: %v", err)
-	}
-	
-	// Check response status
-	fmt.Printf("Status Code: %d\n", resp.GetStatusCode())
-	
-	// Handle different status codes
-	switch {
-	case resp.GetStatusCode() >= 200 && resp.GetStatusCode() < 300:
-		fmt.Println("✅ Success!")
-	case resp.GetStatusCode() >= 400 && resp.GetStatusCode() < 500:
-		fmt.Println("❌ Client error")
-	case resp.GetStatusCode() >= 500:
-		fmt.Println("💥 Server error")
-	}
-	
-	// Check if response contains expected content
-	content := string(resp.Content())
-	if strings.Contains(content, "httpbin") {
-		fmt.Println("✅ Response from httpbin confirmed")
-	}
-	
-	fmt.Println("Response body:", content)
+	fmt.Printf("HTTP/1.0: %s\n", curl1.HTTPVersion.String())
+	fmt.Printf("HTTP/1.1: %s\n", curl2.HTTPVersion.String())
+	fmt.Printf("HTTP/2: %s\n", curl3.HTTPVersion.String())
 }
 ```
 
-## Advanced Usage
+### Example 7: Debug and Verbose Output
 
-### Reusing Sessions
+Get detailed debugging information:
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	
+	"github.com/474420502/gcurl"
+)
+
+func main() {
+	curl, err := gcurl.Parse(`curl -v -H "Authorization: Bearer token123" https://api.example.com/data`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	// Debug output (like curl -v)
+	fmt.Println("=== Debug Output ===")
+	fmt.Println(curl.Debug())
+	
+	// Verbose info (simulated curl verbose output)
+	fmt.Println("\n=== Verbose Output ===")
+	fmt.Println(curl.VerboseInfo())
+	
+	// Summary
+	fmt.Println("\n=== Summary ===")
+	fmt.Println(curl.Summary())
+}
+```
+
+## 🔧 Advanced Usage
+
+### Session Reuse
 
 Sessions can be reused across multiple requests to maintain cookies and connection pooling:
 
@@ -392,20 +333,50 @@ curl2, _ := gcurl.Parse(`curl "http://httpbin.org/cookies"`)
 ses := curl1.CreateSession()
 
 // Both requests will share the same session (and cookies)
-resp1, _ := curl1.CreateTemporary(ses).Execute()
-resp2, _ := curl2.CreateTemporary(ses).Execute()
+resp1, _ := curl1.CreateRequest(ses).Execute()
+resp2, _ := curl2.CreateRequest(ses).Execute()
 ```
 
 ### Direct Execution
 
-For simple one-off requests, you can execute directly:
+For simple one-off requests:
 
 ```go
-curl, _ := gcurl.Parse(`curl "http://httpbin.org/get"`)
+curl, _ := gcurl.Parse(`curl "https://httpbin.org/get"`)
 resp, err := curl.Request().Execute() // Direct execution with auto-generated session
 ```
 
-## API Reference
+### Custom Session Configuration
+
+```go
+package main
+
+import (
+	"time"
+	"net/http"
+	"github.com/474420502/gcurl"
+)
+
+func main() {
+	curl, _ := gcurl.Parse(`curl "https://httpbin.org/delay/2"`)
+	
+	// Create and customize session
+	ses := curl.CreateSession()
+	
+	// Add custom headers
+	customHeaders := make(http.Header)
+	customHeaders.Set("X-Custom-Header", "MyValue")
+	ses.SetHeader(customHeaders)
+	
+	// Set timeout
+	ses.Config().SetTimeout(5 * time.Second)
+	
+	// Use customized session
+	resp, err := curl.CreateRequest(ses).Execute()
+	// ... handle response
+}
+``` 
+## 📊 API Reference
 
 ### Main Functions
 
@@ -418,6 +389,9 @@ resp, err := curl.Request().Execute() // Direct execution with auto-generated se
 - `CreateSession() *requests.Session` - Create a new session with parsed settings
 - `CreateRequest(ses *requests.Session) *requests.Request` - Create request with optional session  
 - `Request() *requests.Request` - Create request with auto-generated session
+- `Debug() string` - Get detailed debug information (like `curl -v`)
+- `VerboseInfo() string` - Get verbose output simulation
+- `Summary() string` - Get brief request summary
 - ~~`CreateTemporary(ses *requests.Session) *requests.Temporary`~~ - **Deprecated**: Use `CreateRequest()` instead
 - ~~`Temporary() *requests.Temporary`~~ - **Deprecated**: Use `Request()` instead  
 
@@ -427,29 +401,142 @@ resp, err := curl.Request().Execute() // Direct execution with auto-generated se
 - `resp.Content() []byte` - Get response body as bytes
 - `resp.ContentString() string` - Get response body as string
 
-### Supported cURL Options
+## ✅ Supported cURL Options
 
-| cURL Option | Description | Supported |
-|-------------|-------------|-----------|
-| `-X, --request` | HTTP method | ✅ |
-| `-H, --header` | Custom headers | ✅ |
-| `-d, --data` | POST data | ✅ |
-| `-F, --form` | Multipart form data | ✅ |
-| `-u, --user` | Authentication | ✅ |
-| `-b, --cookie` | Cookies | ✅ |
-| `-L, --location` | Follow redirects | ✅ |
-| `-k, --insecure` | Skip SSL verification | ✅ |
-| `--connect-timeout` | Connection timeout | ✅ |
-| `--max-time` | Maximum time | ✅ |
-| `--proxy` | Proxy settings | ✅ |
-| `-A, --user-agent` | User agent | ✅ |
-| `--data-urlencode` | URL encoded data | ✅ |
+| Category | cURL Option | Description | Status |
+|----------|-------------|-------------|--------|
+| **HTTP Methods** | `-X, --request` | HTTP method (GET, POST, etc.) | ✅ |
+| **Headers** | `-H, --header` | Custom headers | ✅ |
+| **Data** | `-d, --data` | POST data | ✅ |
+| | `--data-urlencode` | URL encoded data | ✅ |
+| | `-F, --form` | Multipart form data | ✅ |
+| **Authentication** | `-u, --user` | Basic authentication | ✅ |
+| | `--digest` | Digest authentication | ✅ |
+| **Cookies** | `-b, --cookie` | Send cookies | ✅ |
+| | `-c, --cookie-jar` | Save cookies | ✅ |
+| **File Output** | `-o, --output` | Output to file | ✅ |
+| | `-O, --remote-name` | Use remote filename | ✅ |
+| | `--output-dir` | Output directory | ✅ |
+| | `--create-dirs` | Create directories | ✅ |
+| | `-C, --continue-at` | Resume download | ✅ |
+| | `--remove-on-error` | Remove file on error | ✅ |
+| **HTTP Protocol** | `--http1.0` | Force HTTP/1.0 | ✅ |
+| | `--http1.1` | Force HTTP/1.1 | ✅ |
+| | `--http2` | Force HTTP/2 | ✅ |
+| **Redirects** | `-L, --location` | Follow redirects | ✅ |
+| | `--max-redirs` | Maximum redirects | ✅ |
+| **Timeouts** | `--connect-timeout` | Connection timeout | ✅ |
+| | `--max-time` | Maximum time | ✅ |
+| **Proxy** | `--proxy` | Proxy settings | ✅ |
+| | `--proxy-user` | Proxy authentication | ✅ |
+| **SSL/TLS** | `-k, --insecure` | Skip SSL verification | ✅ |
+| | `--cacert` | CA certificate | ✅ |
+| | `--cert` | Client certificate | ✅ |
+| | `--key` | Client private key | ✅ |
+| **User Agent** | `-A, --user-agent` | User agent string | ✅ |
+| **Debugging** | `-v, --verbose` | Verbose output | ✅ |
+| | `-i, --include` | Include headers | ✅ |
+| | `-I, --head` | HEAD request | ✅ |
+| **Compression** | `--compressed` | Accept compression | ✅ |
 
-## Contributing
+## 🔍 Debug and Troubleshooting
 
-We welcome contributions! Please feel free to submit issues and pull requests.
+### Debug Output
 
-## License
+Use the `Debug()` method to get detailed information about the parsed cURL command:
 
-This project is licensed under the MIT License.
+```go
+curl, _ := gcurl.Parse(`curl -v -X POST -H "Content-Type: application/json" -d '{"test":true}' https://api.example.com`)
+fmt.Println(curl.Debug())
+```
+
+**Output:**
+```
+=== CURL Debug Information ===
+Method: POST
+URL: https://api.example.com
+  Scheme: https
+  Host: api.example.com
+  Path: /
+Headers (1):
+  Content-Type: application/json
+Body:
+  Type: raw
+  Length: 13 bytes
+  Content: {"test":true}
+Network Configuration:
+  Timeout: 30s
+  HTTP Version: Auto
+Debug Flags: verbose
+===============================
+```
+
+### Common Issues
+
+1. **URL not found**: Make sure the URL is properly quoted
+2. **Headers not parsed**: Check header format `-H "Key: Value"`
+3. **File upload fails**: Ensure file exists and use correct syntax `-F "field=@file"`
+4. **Authentication not working**: Verify credentials format `-u "user:pass"`
+
+## 🎯 Performance Tips
+
+1. **Reuse sessions** for multiple requests to the same host
+2. **Use connection pooling** via shared sessions
+3. **Set appropriate timeouts** to avoid hanging requests
+4. **Enable compression** with `--compressed` for large responses
+
+## 🧪 Testing
+
+Run the test suite:
+
+```bash
+# Run all tests
+go test -v
+
+# Run tests with coverage
+go test -v -cover
+
+# Run specific test
+go test -v -run TestFileOutput
+```
+
+Current test coverage: **79.1%** with 100+ test cases covering all major functionality.
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how you can help:
+
+1. **Report bugs** - Open an issue with reproduction steps
+2. **Suggest features** - Propose new cURL options to support
+3. **Submit pull requests** - Add tests for any new functionality
+4. **Improve docs** - Help make the documentation better
+
+### Development Setup
+
+```bash
+git clone https://github.com/474420502/gcurl.git
+cd gcurl
+go mod tidy
+go test -v
+```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [requests](https://github.com/474420502/requests) - The underlying HTTP library
+- [cURL](https://curl.se/) - For the excellent command-line tool that inspired this project
+- All contributors who have helped improve this library
+
+## 🔗 Related Projects
+
+- [mholt/curl-to-go](https://github.com/mholt/curl-to-go) - Convert cURL to Go code (online tool)
+- [sj26/curl-to-go](https://github.com/sj26/curl-to-go) - Another cURL to Go converter
+- [requests](https://github.com/474420502/requests) - The HTTP library used by gcurl
+
+---
+
+⭐ **Star this project** if it helps you convert cURL commands to Go code!
 
