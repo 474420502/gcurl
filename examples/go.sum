@@ -1,7 +1,9 @@
-github.com/474420502/requests v1.42.0 h1:aUj0rWhfldbOOlGHDIcqT9zgXEoSlK4IBmRF3LxI1+Y=
-github.com/474420502/requests v1.42.0/go.mod h1:2SCVzim0ONFYG09g/GrM7RTeJIC6qTyZfnohsjnG5C8=
+github.com/474420502/requests v1.50.0 h1:PYlgphoHJgC/x/GHISvbkQb255Epvdpa7wM88j6pz5M=
+github.com/474420502/requests v1.50.0/go.mod h1:N7eX1iqTW6neFzbdChh1jN0NCHH+F0l+GF3Ij1lSGig=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
+github.com/elazarl/goproxy v0.0.0-20210801061803-8e322dfb79c4 h1:lS3P5Nw3oPO05Lk2gFiYUOL3QPaH+fRoI1wFOc4G1UY=
+github.com/elazarl/goproxy v0.0.0-20210801061803-8e322dfb79c4/go.mod h1:Ro8st/ElPeALwNFlcTpWmkr6IoMFfkjXAvTHpevnDsM=
 github.com/schollz/progressbar v1.0.0 h1:gbyFReLHDkZo8mxy/dLWMr+Mpb1MokGJ1FqCiqacjZM=
 github.com/schollz/progressbar v1.0.0/go.mod h1:/l9I7PC3L3erOuz54ghIRKUEFcosiWfLvJv+Eq26UMs=
 github.com/tidwall/gjson v1.12.0 h1:61wEp/qfvFnqKH/WCI3M8HuRut+mHT6Mr82QrFmM2SY=

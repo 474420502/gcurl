@@ -80,7 +80,7 @@ func TestExample8CustomSession(t *testing.T) {
 	customHeaders.Set("User-Agent", "MyApp/1.0")
 	ses.SetHeader(customHeaders)
 
-	ses.Config().SetTimeout(5)
+	ses.Config().SetTimeout(5 * time.Second)
 
 	tp := curl.CreateTemporary(ses)
 

@@ -149,7 +149,7 @@ func main() {
 	fmt.Printf("Method: %s\n", curl.Method)          // POST
 	fmt.Printf("Content-Type: %s\n", curl.ContentType) // application/json
 	
-	resp, err := curl.Temporary().Execute()
+	resp, err := curl.Request().Execute()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func main() {
 	// Form data is automatically handled as multipart
 	fmt.Printf("Body type: %s\n", curl.Body.Type) // multipart
 	
-	resp, err := curl.Temporary().Execute()
+	resp, err := curl.Request().Execute()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func main() {
 		log.Fatal(err)
 	}
 	
-	resp, err := curl.Temporary().Execute()
+	resp, err := curl.Request().Execute()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func main() {
 	
 	fmt.Printf("Auth configured: %v\n", curl.Auth != nil)
 	
-	resp, err := curl.Temporary().Execute()
+	resp, err := curl.Request().Execute()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -301,10 +301,10 @@ func main() {
 	ses.SetHeader(customHeaders)
 	
 	// Set timeout
-	ses.Config().SetTimeout(5) // 5 seconds
+	ses.Config().SetTimeout(5 * time.Second) // 5 seconds
 	
 	// Create temporary request with customized session
-	tp := curl.CreateTemporary(ses)
+	tp := curl.CreateRequest(ses)
 	
 	start := time.Now()
 	resp, err := tp.Execute()
@@ -350,7 +350,7 @@ func main() {
 	fmt.Printf("Parsed URL: %s\n", curl.ParsedURL.String())
 	fmt.Printf("Method: %s\n", curl.Method)
 	
-	resp, err := curl.Temporary().Execute()
+	resp, err := curl.Request().Execute()
 	if err != nil {
 		log.Fatalf("Request failed: %v", err)
 	}
@@ -402,7 +402,7 @@ For simple one-off requests, you can execute directly:
 
 ```go
 curl, _ := gcurl.Parse(`curl "http://httpbin.org/get"`)
-resp, err := curl.Temporary().Execute() // Direct execution with auto-generated session
+resp, err := curl.Request().Execute() // Direct execution with auto-generated session
 ```
 
 ## API Reference
@@ -416,8 +416,10 @@ resp, err := curl.Temporary().Execute() // Direct execution with auto-generated 
 ### CURL Methods  
 
 - `CreateSession() *requests.Session` - Create a new session with parsed settings
-- `CreateTemporary(ses *requests.Session) *requests.Temporary` - Create request with optional session
-- `Temporary() *requests.Temporary` - Create request with auto-generated session  
+- `CreateRequest(ses *requests.Session) *requests.Request` - Create request with optional session  
+- `Request() *requests.Request` - Create request with auto-generated session
+- ~~`CreateTemporary(ses *requests.Session) *requests.Temporary`~~ - **Deprecated**: Use `CreateRequest()` instead
+- ~~`Temporary() *requests.Temporary`~~ - **Deprecated**: Use `Request()` instead  
 
 ### Response Methods
 

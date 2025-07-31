@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/474420502/requests"
 )
@@ -178,7 +179,7 @@ func Execute(curlbash string) (*requests.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.CreateTemporary(nil).Execute()
+	return c.CreateRequest(nil).Execute()
 }
 
 // CreateSession 创建Session
@@ -190,11 +191,13 @@ func (curl *CURL) CreateSession() *requests.Session {
 	ses.SetCookies(curl.ParsedURL, curl.Cookies)
 
 	// 设置总超时
-	ses.Config().SetTimeout(curl.Timeout)
+	if curl.Timeout > 0 {
+		ses.Config().SetTimeout(time.Duration(curl.Timeout) * time.Second)
+	}
 
 	// 设置认证
 	if curl.Auth != nil {
-		ses.Config().SetBasicAuth(curl.Auth)
+		ses.Config().SetBasicAuth(curl.Auth.User, curl.Auth.Password)
 	}
 
 	// 设置跳过TLS验证
@@ -212,7 +215,7 @@ func (curl *CURL) CreateSession() *requests.Session {
 		// 目前先使用总超时作为连接超时的替代方案
 		// 理想情况下应该在requests库中添加专门的SetConnectTimeout方法
 		// TODO: 在requests库中实现真正的连接超时设置
-		ses.Config().SetTimeout(curl.ConnectTimeout)
+		ses.Config().SetTimeout(time.Duration(curl.ConnectTimeout) * time.Second)
 	}
 
 	// 设置重定向策略
@@ -241,9 +244,9 @@ func (curl *CURL) CreateSession() *requests.Session {
 	return ses
 }
 
-// CreateTemporary 根据Session 创建Temporary
-func (curl *CURL) CreateTemporary(ses *requests.Session) *requests.Temporary {
-	var wf *requests.Temporary
+// CreateRequest 根据Session 创建Request
+func (curl *CURL) CreateRequest(ses *requests.Session) *requests.Request {
+	var wf *requests.Request
 
 	if ses == nil {
 		ses = curl.CreateSession()
@@ -304,9 +307,21 @@ func (curl *CURL) CreateTemporary(ses *requests.Session) *requests.Temporary {
 	return wf
 }
 
-// Temporary 根据自己CreateSession 创建Temporary
-func (curl *CURL) Temporary() *requests.Temporary {
-	return curl.CreateTemporary(curl.CreateSession())
+// Request 根据自己CreateSession 创建Request
+func (curl *CURL) Request() *requests.Request {
+	return curl.CreateRequest(curl.CreateSession())
+}
+
+// Temporary 向后兼容方法，内部调用Request()
+// Deprecated: 使用 Request() 方法替代
+func (curl *CURL) Temporary() *requests.Request {
+	return curl.Request()
+}
+
+// CreateTemporary 向后兼容方法，内部调用CreateRequest()
+// Deprecated: 使用 CreateRequest() 方法替代
+func (curl *CURL) CreateTemporary(ses *requests.Session) *requests.Request {
+	return curl.CreateRequest(ses)
 }
 
 type MatchGroup int

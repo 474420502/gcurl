@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/474420502/gcurl"
 )
@@ -48,7 +49,7 @@ func exampleCustomSession() {
 	customHeaders.Set("User-Agent", "MyApp/1.0")
 	ses.SetHeader(customHeaders)
 
-	ses.Config().SetTimeout(5)
+	ses.Config().SetTimeout(5 * time.Second)
 
 	tp := curl.CreateTemporary(ses)
 
