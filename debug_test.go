@@ -1,6 +1,7 @@
 package gcurl
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -108,4 +109,132 @@ func TestSupportedOptions(t *testing.T) {
 	}
 
 	t.Logf("\n📊 支持度统计: %d/%d (%.1f%%)", supported, total, float64(supported)/float64(total)*100)
+}
+
+// TestDebugFunctionality 测试新增的调试功能
+func TestDebugFunctionality(t *testing.T) {
+	tests := []struct {
+		name    string
+		curlCmd string
+		desc    string
+	}{
+		{
+			name:    "Basic GET with headers",
+			curlCmd: `curl -H "Accept: application/json" -H "User-Agent: TestApp/1.0" "https://httpbin.org/get?param=value"`,
+			desc:    "基础GET请求，包含头部和查询参数",
+		},
+		{
+			name:    "POST with JSON data",
+			curlCmd: `curl -X POST -H "Content-Type: application/json" -d '{"name":"test","age":25}' "https://httpbin.org/post"`,
+			desc:    "POST请求，包含JSON数据",
+		},
+		{
+			name:    "Complex request with auth and cookies",
+			curlCmd: `curl -u "user:pass" -b "session=abc123; theme=dark" -H "X-API-Key: secret" "https://httpbin.org/get"`,
+			desc:    "复杂请求，包含认证和Cookie",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("\n🧪 测试用例: %s", tt.desc)
+			t.Logf("命令: %s", tt.curlCmd)
+
+			curl, err := Parse(tt.curlCmd)
+			if err != nil {
+				t.Errorf("解析失败: %v", err)
+				return
+			}
+
+			// 测试 Summary 方法
+			summary := curl.Summary()
+			t.Logf("\n📝 简要信息: %s", summary)
+
+			// 测试 Debug 方法
+			debug := curl.Debug()
+			if len(debug) == 0 {
+				t.Error("Debug() 不应该返回空字符串")
+			}
+
+			// 测试 VerboseInfo 方法
+			verbose := curl.VerboseInfo()
+			if len(verbose) == 0 {
+				t.Error("VerboseInfo() 不应该返回空字符串")
+			}
+
+			// 验证基本信息存在
+			if !strings.Contains(debug, curl.Method) {
+				t.Error("调试信息应该包含HTTP方法")
+			}
+			if curl.ParsedURL != nil && !strings.Contains(debug, curl.ParsedURL.String()) {
+				t.Error("调试信息应该包含URL")
+			}
+		})
+	}
+}
+
+// TestDebugOutputFormat 测试调试输出格式
+func TestDebugOutputFormat(t *testing.T) {
+	// 测试包含多种特性的复杂请求
+	curlCmd := `curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer token123" -d '{"key":"value"}' -b "session=abc; theme=dark" -u "user:pass" --connect-timeout 30 -L -k "https://api.example.com/data?filter=active"`
+
+	curl, err := Parse(curlCmd)
+	if err != nil {
+		t.Fatalf("解析失败: %v", err)
+	}
+
+	// 设置调试标志
+	curl.Verbose = true
+	curl.Include = true
+	curl.Silent = false
+	curl.Trace = true
+
+	// 测试 Debug() 输出
+	debug := curl.Debug()
+	t.Logf("\n🔍 Debug() 输出:\n%s", debug)
+
+	// 验证 Debug() 输出包含所有关键信息
+	requiredSections := []string{"Method:", "URL:", "Headers", "Authentication:", "Body:", "Debug Flags:"}
+	for _, section := range requiredSections {
+		if !strings.Contains(debug, section) {
+			t.Errorf("Debug() 输出应该包含 '%s' 部分", section)
+		}
+	}
+
+	// 测试 VerboseInfo() 输出
+	verbose := curl.VerboseInfo()
+	t.Logf("\n📋 VerboseInfo() 输出:\n%s", verbose)
+
+	// 验证详细信息的完整性
+	verboseChecks := []string{"POST", "api.example.com", "Content-Type", "Bearer", "session=abc"}
+	for _, check := range verboseChecks {
+		if !strings.Contains(verbose, check) {
+			t.Errorf("VerboseInfo() 输出应该包含 '%s'", check)
+		}
+	}
+}
+
+// TestDebugWithEmptyFields 测试空字段的调试输出
+func TestDebugWithEmptyFields(t *testing.T) {
+	// 最简单的GET请求
+	curl, err := Parse("curl https://example.com")
+	if err != nil {
+		t.Fatalf("解析失败: %v", err)
+	}
+
+	summary := curl.Summary()
+	debug := curl.Debug()
+	verbose := curl.VerboseInfo()
+
+	t.Logf("简单请求 Summary: %s", summary)
+	t.Logf("简单请求 Debug 长度: %d", len(debug))
+	t.Logf("简单请求 Verbose 长度: %d", len(verbose))
+
+	// 验证即使是简单请求也有基础信息
+	if !strings.Contains(summary, "GET") {
+		t.Error("Summary 应该包含HTTP方法")
+	}
+	if !strings.Contains(summary, "example.com") {
+		t.Error("Summary 应该包含域名")
+	}
 }

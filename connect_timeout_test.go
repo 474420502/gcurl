@@ -2,6 +2,7 @@ package gcurl
 
 import (
 	"testing"
+	"time"
 )
 
 func TestConnectTimeoutParsing(t *testing.T) {
@@ -13,8 +14,8 @@ func TestConnectTimeoutParsing(t *testing.T) {
 	}
 
 	// 验证 ConnectTimeout 字段是否被正确设置
-	if curl.ConnectTimeout != 5 {
-		t.Errorf("Expected ConnectTimeout to be 5, got %d", curl.ConnectTimeout)
+	if curl.ConnectTimeout != 5*time.Second {
+		t.Errorf("Expected ConnectTimeout to be 5s, got %v", curl.ConnectTimeout)
 	}
 
 	// 验证其他字段也正常
@@ -36,8 +37,8 @@ func TestConnectTimeoutWithOtherOptions(t *testing.T) {
 	}
 
 	// 验证各个选项都被正确解析
-	if curl.ConnectTimeout != 10 {
-		t.Errorf("Expected ConnectTimeout to be 10, got %d", curl.ConnectTimeout)
+	if curl.ConnectTimeout != 10*time.Second {
+		t.Errorf("Expected ConnectTimeout to be 10s, got %v", curl.ConnectTimeout)
 	}
 
 	if curl.Proxy != "socks5://localhost:1080" {

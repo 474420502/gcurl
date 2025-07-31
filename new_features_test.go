@@ -2,6 +2,7 @@ package gcurl
 
 import (
 	"testing"
+	"time"
 )
 
 // TestNewFeatures 测试新添加的功能
@@ -43,11 +44,11 @@ func TestNewFeatures(t *testing.T) {
 			t.Fatalf("解析错误: %v", err)
 		}
 
-		if c.Timeout != 30 {
-			t.Errorf("期望超时时间是30秒，得到: %d", c.Timeout)
+		if c.Timeout != 30*time.Second {
+			t.Errorf("期望超时时间是30秒，得到: %v", c.Timeout)
 		}
 
-		t.Logf("✓ 最大时间功能正常 - Timeout: %d秒", c.Timeout)
+		t.Logf("✓ 最大时间功能正常 - Timeout: %v", c.Timeout)
 	})
 
 	t.Run("代理功能", func(t *testing.T) {
@@ -105,8 +106,8 @@ func TestNewFeatures(t *testing.T) {
 			t.Errorf("期望方法是POST，得到: %s", c.Method)
 		}
 
-		if c.Timeout != 60 {
-			t.Errorf("期望超时时间是60秒，得到: %d", c.Timeout)
+		if c.Timeout != 60*time.Second {
+			t.Errorf("期望超时时间是60秒，得到: %v", c.Timeout)
 		}
 
 		if c.Proxy != "http://proxy:8080" {

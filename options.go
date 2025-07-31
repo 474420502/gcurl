@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/474420502/requests"
 )
@@ -148,6 +149,29 @@ func init() {
 	// --cert (客户端证书)
 	certSpec := OptionSpec{Handler: handleClientCert, NumArgs: 1}
 	optionRegistry["--cert"] = certSpec
+
+	// --verbose / -v (详细输出)
+	verboseSpec := OptionSpec{Handler: handleVerbose, NumArgs: 0}
+	optionRegistry["-v"] = verboseSpec
+	optionRegistry["--verbose"] = verboseSpec
+
+	// --include / -i (包含响应头)
+	includeSpec := OptionSpec{Handler: handleInclude, NumArgs: 0}
+	optionRegistry["-i"] = includeSpec
+	optionRegistry["--include"] = includeSpec
+
+	// --silent / -s (静默模式)
+	silentSpec := OptionSpec{Handler: handleSilent, NumArgs: 0}
+	optionRegistry["-s"] = silentSpec
+	optionRegistry["--silent"] = silentSpec
+
+	// --trace
+	traceSpec := OptionSpec{Handler: handleTrace, NumArgs: 0}
+	optionRegistry["--trace"] = traceSpec
+
+	// --digest (强制Digest认证)
+	digestSpec := OptionSpec{Handler: handleDigest, NumArgs: 1}
+	optionRegistry["--digest"] = digestSpec
 
 	// --key (客户端私钥)
 	keySpec := OptionSpec{Handler: handleClientKey, NumArgs: 1}
@@ -324,16 +348,31 @@ func handleSocks5(c *CURL, args ...string) error {
 
 // handleConnectTimeout 用于处理 --connect-timeout 选项
 func handleConnectTimeout(c *CURL, args ...string) error {
-	// cURL 通常使用秒作为单位，可以是浮点数，但我们的库使用整数秒更方便
-	timeout, err := strconv.Atoi(args[0])
-	if err != nil {
-		return fmt.Errorf("invalid value for --connect-timeout: %w", err)
-	}
-	c.ConnectTimeout = timeout
-	return nil
-}
+	connectTimeoutStr := args[0]
 
-// handleDataUrlencode 用于处理 --data-urlencode 选项
+	// 支持单位：s(秒), m(分), h(小时)，如 "30s", "5m", "1h"
+	if strings.HasSuffix(connectTimeoutStr, "s") || strings.HasSuffix(connectTimeoutStr, "m") || strings.HasSuffix(connectTimeoutStr, "h") {
+		duration, err := time.ParseDuration(connectTimeoutStr)
+		if err != nil {
+			return fmt.Errorf("invalid value for --connect-timeout: %w", err)
+		}
+		if duration < 0 {
+			return fmt.Errorf("connect-timeout must be non-negative: %s", connectTimeoutStr)
+		}
+		c.ConnectTimeout = duration
+	} else {
+		// 纯数字，按秒处理
+		timeout, err := strconv.Atoi(connectTimeoutStr)
+		if err != nil {
+			return fmt.Errorf("invalid value for --connect-timeout: %w", err)
+		}
+		if timeout < 0 {
+			return fmt.Errorf("connect-timeout must be non-negative: %d", timeout)
+		}
+		c.ConnectTimeout = time.Duration(timeout) * time.Second
+	}
+	return nil
+} // handleDataUrlencode 用于处理 --data-urlencode 选项
 // 支持以下语法格式：
 // content - URL编码内容
 // =content - URL编码内容（与上面相同）
@@ -463,6 +502,21 @@ func handleUser(c *CURL, args ...string) error {
 	return nil
 }
 
+// handleDigest 用于处理 --digest 选项
+func handleDigest(c *CURL, args ...string) error {
+	userpass := args[0]
+	// 使用 strings.SplitN 分割，避免密码中包含 ':' 导致的问题
+	parts := strings.SplitN(userpass, ":", 2)
+	if len(parts) < 2 {
+		// cURL 在这种情况下可能会提示输入密码，但作为一个库，我们要求格式必须完整
+		return fmt.Errorf("invalid digest format. Expected 'user:password', got '%s'", userpass)
+	}
+	// 使用新的 AuthV2 系统
+	auth := NewDigestAuth(parts[0], parts[1])
+	c.AuthV2 = auth
+	return nil
+}
+
 // handleUserAgent 用于处理 --user-agent 选项
 func handleUserAgent(c *CURL, args ...string) error {
 	userAgent := args[0]
@@ -573,13 +627,28 @@ func handleMaxTime(c *CURL, args ...string) error {
 	maxTime := args[0]
 
 	// 解析时间值（可能是秒数或带单位的值）
-	// 简化实现：假设是秒数
-	timeout, err := strconv.Atoi(maxTime)
-	if err != nil {
-		return fmt.Errorf("invalid max-time value: %s", maxTime)
+	// 支持单位：s(秒), m(分), h(小时)，如 "30s", "5m", "1h"
+	if strings.HasSuffix(maxTime, "s") || strings.HasSuffix(maxTime, "m") || strings.HasSuffix(maxTime, "h") {
+		duration, err := time.ParseDuration(maxTime)
+		if err != nil {
+			return fmt.Errorf("invalid max-time value: %s", maxTime)
+		}
+		if duration < 0 {
+			return fmt.Errorf("max-time must be non-negative: %s", maxTime)
+		}
+		c.Timeout = duration
+	} else {
+		// 纯数字，按秒处理
+		timeout, err := strconv.Atoi(maxTime)
+		if err != nil {
+			return fmt.Errorf("invalid max-time value: %s", maxTime)
+		}
+		if timeout < 0 {
+			return fmt.Errorf("max-time must be non-negative: %d", timeout)
+		}
+		c.Timeout = time.Duration(timeout) * time.Second
 	}
 
-	c.Timeout = timeout
 	return nil
 }
 
@@ -667,4 +736,28 @@ func parseHTTPHeaderKeyValue(headerValue string) (key string, value string, err 
 	// curl 会保留用户明确指定的引号
 
 	return key, value, nil
+}
+
+// handleVerbose 用于处理 -v, --verbose 选项 (详细输出)
+func handleVerbose(c *CURL, args ...string) error {
+	c.Verbose = true
+	return nil
+}
+
+// handleInclude 用于处理 -i, --include 选项 (包含响应头)
+func handleInclude(c *CURL, args ...string) error {
+	c.Include = true
+	return nil
+}
+
+// handleSilent 用于处理 -s, --silent 选项 (静默模式)
+func handleSilent(c *CURL, args ...string) error {
+	c.Silent = true
+	return nil
+}
+
+// handleTrace 用于处理 --trace 选项 (追踪模式)
+func handleTrace(c *CURL, args ...string) error {
+	c.Trace = true
+	return nil
 }

@@ -124,14 +124,22 @@ type CURL struct {
 	// Cookies   []http.Cookie // 旧定义
 	Cookies []*http.Cookie // 新定义：使用指针切片，符合标准库和requests库的用法
 	// --- 修改结束 ---
-	ContentType    string
-	Body           *BodyData // 改为更灵活的结构
-	Auth           *requests.BasicAuth
-	Timeout        int // 对应 --max-time, 总超时
-	ConnectTimeout int // 新增字段，对应 --connect-timeout
-	Insecure       bool
-	Proxy          string // 新增字段，用于存储代理地址
-	LimitRate      string // 新增字段，用于存储传输速度限制
+	ContentType string
+	Body        *BodyData // 改为更灵活的结构
+
+	// 认证系统 - 扩展支持多种认证方式
+	Auth   *requests.BasicAuth // 保持向后兼容
+	AuthV2 *Authentication     // 新的认证系统
+
+	// 超时配置 - 升级为 time.Duration 类型以提供更好的类型安全
+	Timeout             time.Duration // 对应 --max-time, 总超时
+	ConnectTimeout      time.Duration // 对应 --connect-timeout, 连接超时
+	DNSTimeout          time.Duration // DNS解析超时
+	TLSHandshakeTimeout time.Duration // TLS握手超时
+
+	Insecure  bool
+	Proxy     string // 新增字段，用于存储代理地址
+	LimitRate string // 新增字段，用于存储传输速度限制
 
 	// 新增SSL/TLS相关字段
 	CACert     string // --cacert 自定义CA证书路径
@@ -142,6 +150,12 @@ type CURL struct {
 	HTTP2          bool // --http2 强制使用HTTP/2
 	MaxRedirs      int  // --max-redirs 最大重定向次数 (-1表示无限制)
 	FollowRedirect bool // -L/--location 是否跟随重定向
+
+	// 新增调试和输出控制字段
+	Verbose bool // -v/--verbose 详细输出
+	Include bool // -i/--include 在输出中包含响应头
+	Silent  bool // -s/--silent 静默模式
+	Trace   bool // --trace 追踪所有传入和传出的数据
 }
 
 // New new 一个 curl 出来
@@ -151,8 +165,13 @@ func New() *CURL {
 	u.Header = make(http.Header)
 	u.CookieJar, _ = cookiejar.New(nil)
 	u.Body = &BodyData{Type: "raw", Content: bytes.NewBuffer(nil)}
-	u.Timeout = 30           // 默认总超时
-	u.ConnectTimeout = 0     // 0 表示不设置，使用系统默认
+
+	// 设置默认超时 - 使用 time.Duration 类型
+	u.Timeout = 30 * time.Second // 默认总超时30秒
+	u.ConnectTimeout = 0         // 0 表示不设置，使用系统默认
+	u.DNSTimeout = 0             // 0 表示不设置，使用系统默认
+	u.TLSHandshakeTimeout = 0    // 0 表示不设置，使用系统默认
+
 	u.LimitRate = ""         // 默认不限速
 	u.MaxRedirs = -1         // 默认无限制重定向
 	u.HTTP2 = false          // 默认不强制HTTP/2
@@ -192,11 +211,26 @@ func (curl *CURL) CreateSession() *requests.Session {
 
 	// 设置总超时
 	if curl.Timeout > 0 {
-		ses.Config().SetTimeout(time.Duration(curl.Timeout) * time.Second)
+		ses.Config().SetTimeout(curl.Timeout)
 	}
 
-	// 设置认证
-	if curl.Auth != nil {
+	// 设置认证 - 支持新的认证系统
+	if curl.AuthV2 != nil && curl.AuthV2.IsValid() {
+		switch curl.AuthV2.Type {
+		case AuthBasic:
+			ses.Config().SetBasicAuth(curl.AuthV2.Username, curl.AuthV2.Password)
+		case AuthDigest:
+			// Digest认证需要特殊处理
+			ses.Config().SetBasicAuth(curl.AuthV2.Username, curl.AuthV2.Password)
+			// TODO: 在requests库中实现真正的Digest认证支持
+		case AuthBearer:
+			// Bearer认证通过Header设置
+			authHeader := make(http.Header)
+			authHeader.Set("Authorization", curl.AuthV2.GetAuthHeader())
+			ses.SetHeader(authHeader)
+		}
+	} else if curl.Auth != nil {
+		// 向后兼容旧的认证系统
 		ses.Config().SetBasicAuth(curl.Auth.User, curl.Auth.Password)
 	}
 
@@ -215,7 +249,7 @@ func (curl *CURL) CreateSession() *requests.Session {
 		// 目前先使用总超时作为连接超时的替代方案
 		// 理想情况下应该在requests库中添加专门的SetConnectTimeout方法
 		// TODO: 在requests库中实现真正的连接超时设置
-		ses.Config().SetTimeout(time.Duration(curl.ConnectTimeout) * time.Second)
+		ses.Config().SetTimeout(curl.ConnectTimeout)
 	}
 
 	// 设置重定向策略
@@ -415,7 +449,210 @@ func ParseBash(scurl string) (*CURL, error) {
 	}
 	args := lexer.Tokens
 
-	// 2. 将分词结果传递给选项处理器
-	// (此部分将在下一节中重构)
+	// 2. 调用核心解析函数
 	return buildFromArgs(args)
+}
+
+// Debug 返回 CURL 对象的详细调试信息
+func (c *CURL) Debug() string {
+	var b strings.Builder
+
+	b.WriteString("=== CURL Debug Information ===\n")
+
+	// 基本信息
+	b.WriteString(fmt.Sprintf("Method: %s\n", c.Method))
+	if c.ParsedURL != nil {
+		b.WriteString(fmt.Sprintf("URL: %s\n", c.ParsedURL.String()))
+		b.WriteString(fmt.Sprintf("  Scheme: %s\n", c.ParsedURL.Scheme))
+		b.WriteString(fmt.Sprintf("  Host: %s\n", c.ParsedURL.Host))
+		b.WriteString(fmt.Sprintf("  Path: %s\n", c.ParsedURL.Path))
+		if c.ParsedURL.RawQuery != "" {
+			b.WriteString(fmt.Sprintf("  Query: %s\n", c.ParsedURL.RawQuery))
+		}
+	}
+
+	// 头部信息
+	if len(c.Header) > 0 {
+		b.WriteString(fmt.Sprintf("Headers (%d):\n", len(c.Header)))
+		for key, values := range c.Header {
+			for _, value := range values {
+				b.WriteString(fmt.Sprintf("  %s: %s\n", key, value))
+			}
+		}
+	}
+
+	// Cookie 信息
+	if len(c.Cookies) > 0 {
+		b.WriteString(fmt.Sprintf("Cookies (%d):\n", len(c.Cookies)))
+		for _, cookie := range c.Cookies {
+			b.WriteString(fmt.Sprintf("  %s=%s", cookie.Name, cookie.Value))
+			if cookie.Domain != "" {
+				b.WriteString(fmt.Sprintf("; Domain=%s", cookie.Domain))
+			}
+			if cookie.Path != "" {
+				b.WriteString(fmt.Sprintf("; Path=%s", cookie.Path))
+			}
+			b.WriteString("\n")
+		}
+	}
+
+	// 认证信息
+	if c.Auth != nil {
+		b.WriteString(fmt.Sprintf("Authentication: Basic (%s:***)\n", c.Auth.User))
+	}
+
+	// Body 信息
+	if c.Body != nil {
+		b.WriteString("Body:\n")
+		b.WriteString(fmt.Sprintf("  Type: %s\n", c.Body.Type))
+		b.WriteString(fmt.Sprintf("  Length: %d bytes\n", c.Body.Len()))
+		if c.Body.Type == "raw" && c.Body.Len() < 200 {
+			if buf, ok := c.Body.Content.(*bytes.Buffer); ok {
+				b.WriteString(fmt.Sprintf("  Content: %s\n", buf.String()))
+			}
+		} else if c.Body.Len() >= 200 {
+			b.WriteString("  Content: [too large to display]\n")
+		}
+	}
+
+	// 网络配置
+	b.WriteString("Network Configuration:\n")
+	if c.Timeout > 0 {
+		b.WriteString(fmt.Sprintf("  Timeout: %v\n", c.Timeout))
+	}
+	if c.ConnectTimeout > 0 {
+		b.WriteString(fmt.Sprintf("  Connect Timeout: %v\n", c.ConnectTimeout))
+	}
+	if c.DNSTimeout > 0 {
+		b.WriteString(fmt.Sprintf("  DNS Timeout: %v\n", c.DNSTimeout))
+	}
+	if c.TLSHandshakeTimeout > 0 {
+		b.WriteString(fmt.Sprintf("  TLS Handshake Timeout: %v\n", c.TLSHandshakeTimeout))
+	}
+	if c.Proxy != "" {
+		b.WriteString(fmt.Sprintf("  Proxy: %s\n", c.Proxy))
+	}
+	if c.Insecure {
+		b.WriteString("  SSL Verification: DISABLED\n")
+	}
+
+	// SSL/TLS 配置
+	if c.CACert != "" || c.ClientCert != "" || c.ClientKey != "" {
+		b.WriteString("SSL/TLS Configuration:\n")
+		if c.CACert != "" {
+			b.WriteString(fmt.Sprintf("  CA Certificate: %s\n", c.CACert))
+		}
+		if c.ClientCert != "" {
+			b.WriteString(fmt.Sprintf("  Client Certificate: %s\n", c.ClientCert))
+		}
+		if c.ClientKey != "" {
+			b.WriteString(fmt.Sprintf("  Client Key: %s\n", c.ClientKey))
+		}
+	}
+
+	// 重定向配置
+	if c.FollowRedirect {
+		b.WriteString("Redirect Configuration:\n")
+		b.WriteString("  Follow Redirects: YES\n")
+		if c.MaxRedirs >= 0 {
+			b.WriteString(fmt.Sprintf("  Max Redirects: %d\n", c.MaxRedirs))
+		} else {
+			b.WriteString("  Max Redirects: unlimited\n")
+		}
+	}
+
+	// 调试标志
+	debugFlags := []string{}
+	if c.Verbose {
+		debugFlags = append(debugFlags, "verbose")
+	}
+	if c.Include {
+		debugFlags = append(debugFlags, "include-headers")
+	}
+	if c.Silent {
+		debugFlags = append(debugFlags, "silent")
+	}
+	if c.Trace {
+		debugFlags = append(debugFlags, "trace")
+	}
+	if len(debugFlags) > 0 {
+		b.WriteString(fmt.Sprintf("Debug Flags: %s\n", strings.Join(debugFlags, ", ")))
+	}
+
+	b.WriteString("===============================")
+	return b.String()
+}
+
+// Summary 返回 CURL 对象的简要信息
+func (c *CURL) Summary() string {
+	var parts []string
+
+	// 基本请求信息
+	if c.ParsedURL != nil {
+		parts = append(parts, fmt.Sprintf("%s %s", c.Method, c.ParsedURL.String()))
+	}
+
+	// 重要配置
+	if len(c.Header) > 0 {
+		parts = append(parts, fmt.Sprintf("%d headers", len(c.Header)))
+	}
+	if len(c.Cookies) > 0 {
+		parts = append(parts, fmt.Sprintf("%d cookies", len(c.Cookies)))
+	}
+	if c.Body != nil && c.Body.Len() > 0 {
+		parts = append(parts, fmt.Sprintf("body(%s, %d bytes)", c.Body.Type, c.Body.Len()))
+	}
+	if c.Auth != nil {
+		parts = append(parts, "auth")
+	}
+	if c.Proxy != "" {
+		parts = append(parts, "proxy")
+	}
+	if c.Insecure {
+		parts = append(parts, "insecure")
+	}
+
+	return strings.Join(parts, " | ")
+}
+
+// Verbose 返回详细的执行信息（模拟 curl -v 的输出）
+func (c *CURL) VerboseInfo() string {
+	var b strings.Builder
+
+	if c.ParsedURL != nil {
+		b.WriteString(fmt.Sprintf("* Trying %s...\n", c.ParsedURL.Host))
+		b.WriteString(fmt.Sprintf("* Connected to %s port %s\n", c.ParsedURL.Hostname(), c.ParsedURL.Port()))
+
+		if c.ParsedURL.Scheme == "https" {
+			b.WriteString("* SSL connection using TLS\n")
+			if c.Insecure {
+				b.WriteString("* WARNING: SSL verification disabled!\n")
+			}
+		}
+
+		// 请求行
+		path := c.ParsedURL.Path
+		if path == "" {
+			path = "/"
+		}
+		if c.ParsedURL.RawQuery != "" {
+			path += "?" + c.ParsedURL.RawQuery
+		}
+		b.WriteString(fmt.Sprintf("> %s %s HTTP/1.1\n", c.Method, path))
+		b.WriteString(fmt.Sprintf("> Host: %s\n", c.ParsedURL.Host))
+
+		// 请求头
+		for key, values := range c.Header {
+			for _, value := range values {
+				b.WriteString(fmt.Sprintf("> %s: %s\n", key, value))
+			}
+		}
+
+		if c.Body != nil && c.Body.Len() > 0 {
+			b.WriteString(">\n")
+			b.WriteString(fmt.Sprintf("* upload completely sent off: %d out of %d bytes\n", c.Body.Len(), c.Body.Len()))
+		}
+	}
+
+	return b.String()
 }
