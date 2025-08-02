@@ -25,6 +25,7 @@ type OptionSpec struct {
 }
 
 // optionRegistry 是所有支持的 cURL 选项的注册中心
+// 注意: 这个map只在init函数中初始化，运行时为只读，因此是线程安全的
 var optionRegistry = make(map[string]OptionSpec)
 
 // init 函数是注册选项的绝佳位置

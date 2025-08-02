@@ -416,7 +416,7 @@ func TestCurlPaserHttpBody(t *testing.T) {
 		t.Error(err)
 	}
 	tp := curl.CreateTemporary(curl.CreateSession())
-	resp, err := tp.TestExecute(gserver)
+	resp, err := tp.TestExecute(getTestServer())
 	if err != nil {
 		t.Error(err)
 	}

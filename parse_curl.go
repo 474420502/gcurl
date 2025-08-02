@@ -780,10 +780,25 @@ func ParseBash(scurl string) (*CURL, error) {
 // Debug 返回 CURL 对象的详细调试信息
 func (c *CURL) Debug() string {
 	var b strings.Builder
-
 	b.WriteString("=== CURL Debug Information ===\n")
+	
+	c.debugBasicInfo(&b)
+	c.debugHeaders(&b)
+	c.debugCookies(&b)
+	c.debugAuth(&b)
+	c.debugBody(&b)
+	c.debugNetworkConfig(&b)
+	c.debugSSLConfig(&b)
+	c.debugRedirectConfig(&b)
+	c.debugFlags(&b)
+	c.debugFileOutput(&b)
+	
+	b.WriteString("===============================")
+	return b.String()
+}
 
-	// 基本信息
+// debugBasicInfo 输出基本请求信息
+func (c *CURL) debugBasicInfo(b *strings.Builder) {
 	b.WriteString(fmt.Sprintf("Method: %s\n", c.Method))
 	if c.ParsedURL != nil {
 		b.WriteString(fmt.Sprintf("URL: %s\n", c.ParsedURL.String()))
@@ -794,8 +809,10 @@ func (c *CURL) Debug() string {
 			b.WriteString(fmt.Sprintf("  Query: %s\n", c.ParsedURL.RawQuery))
 		}
 	}
+}
 
-	// 头部信息
+// debugHeaders 输出头部信息
+func (c *CURL) debugHeaders(b *strings.Builder) {
 	if len(c.Header) > 0 {
 		b.WriteString(fmt.Sprintf("Headers (%d):\n", len(c.Header)))
 		for key, values := range c.Header {
@@ -804,8 +821,10 @@ func (c *CURL) Debug() string {
 			}
 		}
 	}
+}
 
-	// Cookie 信息
+// debugCookies 输出Cookie信息
+func (c *CURL) debugCookies(b *strings.Builder) {
 	if len(c.Cookies) > 0 {
 		b.WriteString(fmt.Sprintf("Cookies (%d):\n", len(c.Cookies)))
 		for _, cookie := range c.Cookies {
@@ -819,13 +838,17 @@ func (c *CURL) Debug() string {
 			b.WriteString("\n")
 		}
 	}
+}
 
-	// 认证信息
+// debugAuth 输出认证信息
+func (c *CURL) debugAuth(b *strings.Builder) {
 	if c.Auth != nil {
 		b.WriteString(fmt.Sprintf("Authentication: Basic (%s:***)\n", c.Auth.User))
 	}
+}
 
-	// Body 信息
+// debugBody 输出请求体信息
+func (c *CURL) debugBody(b *strings.Builder) {
 	if c.Body != nil {
 		b.WriteString("Body:\n")
 		b.WriteString(fmt.Sprintf("  Type: %s\n", c.Body.Type))
@@ -838,8 +861,10 @@ func (c *CURL) Debug() string {
 			b.WriteString("  Content: [too large to display]\n")
 		}
 	}
+}
 
-	// 网络配置
+// debugNetworkConfig 输出网络配置信息
+func (c *CURL) debugNetworkConfig(b *strings.Builder) {
 	b.WriteString("Network Configuration:\n")
 	if c.Timeout > 0 {
 		b.WriteString(fmt.Sprintf("  Timeout: %v\n", c.Timeout))
@@ -869,8 +894,10 @@ func (c *CURL) Debug() string {
 	if c.Insecure {
 		b.WriteString("  SSL Verification: DISABLED\n")
 	}
+}
 
-	// SSL/TLS 配置
+// debugSSLConfig 输出SSL/TLS配置信息
+func (c *CURL) debugSSLConfig(b *strings.Builder) {
 	if c.CACert != "" || c.ClientCert != "" || c.ClientKey != "" {
 		b.WriteString("SSL/TLS Configuration:\n")
 		if c.CACert != "" {
@@ -883,8 +910,10 @@ func (c *CURL) Debug() string {
 			b.WriteString(fmt.Sprintf("  Client Key: %s\n", c.ClientKey))
 		}
 	}
+}
 
-	// 重定向配置
+// debugRedirectConfig 输出重定向配置信息
+func (c *CURL) debugRedirectConfig(b *strings.Builder) {
 	if c.FollowRedirect {
 		b.WriteString("Redirect Configuration:\n")
 		b.WriteString("  Follow Redirects: YES\n")
@@ -894,8 +923,10 @@ func (c *CURL) Debug() string {
 			b.WriteString("  Max Redirects: unlimited\n")
 		}
 	}
+}
 
-	// 调试标志
+// debugFlags 输出调试标志信息
+func (c *CURL) debugFlags(b *strings.Builder) {
 	debugFlags := []string{}
 	if c.Verbose {
 		debugFlags = append(debugFlags, "verbose")
@@ -912,8 +943,10 @@ func (c *CURL) Debug() string {
 	if len(debugFlags) > 0 {
 		b.WriteString(fmt.Sprintf("Debug Flags: %s\n", strings.Join(debugFlags, ", ")))
 	}
+}
 
-	// 文件输出配置
+// debugFileOutput 输出文件输出配置信息
+func (c *CURL) debugFileOutput(b *strings.Builder) {
 	if c.OutputFile != "" || c.RemoteName || c.OutputDir != "" {
 		b.WriteString("File Output Configuration:\n")
 		if c.OutputFile != "" {
@@ -935,9 +968,6 @@ func (c *CURL) Debug() string {
 			b.WriteString(fmt.Sprintf("  Continue At: %d bytes\n", c.ContinueAt))
 		}
 	}
-
-	b.WriteString("===============================")
-	return b.String()
 }
 
 // Summary 返回 CURL 对象的简要信息
