@@ -1003,6 +1003,8 @@ func main() {
 | **Compression**     | `--compressed`      | Accept compressed response    | ✅     | `curl --compressed`                     |
 | **Range Requests**  | `-r, --range`       | Byte range request            | ✅     | `curl -r 0-1023`                        |
 | **DNS Resolution**  | `--resolve`         | Custom host:port:address mapping | ✅  | `curl --resolve example.com:443:127.0.0.1` |
+| **Connection Control** | `--connect-to`   | Connection redirection        | ✅     | `curl --connect-to host:port:connect-host:connect-port` |
+| **Data Conversion** | `-G, --get`         | Convert POST data to GET query params | ✅ | `curl -G -d "q=search" https://api.example.com` |
 
 ## 🔍 Debug and Troubleshooting
 
@@ -1255,7 +1257,17 @@ go vet ./...
 
 ## � Version History
 
-### v1.1.0 (Current)
+### v1.2.0 (Current)
+
+- ✅ Added `--connect-to` option for network troubleshooting and load balancing
+- ✅ Implemented `-G/--get` option for converting POST data to GET query parameters  
+- ✅ Enhanced `--resolve` with multi-IP and force-replacement (+) support
+- ✅ Improved examples structure with organized subdirectories
+- ✅ Updated test coverage to 86.9% with comprehensive edge case testing
+- ✅ Added detailed implementation documentation
+- ✅ Cleaned up repository for professional release standards
+
+### v1.1.0 (Previous)
 
 - ✅ Comprehensive file output support (`-o`, `-O`, `--output-dir`, etc.)
 - ✅ Complete Digest Authentication implementation
@@ -1278,6 +1290,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🔗 Related Projects
 
 - [requests](https://github.com/474420502/requests) - The HTTP client library used by gcurl
+- [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md) - Detailed technical documentation of v1.2.0 features
 
 ## 📞 Support
 
