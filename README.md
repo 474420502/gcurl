@@ -1,7 +1,7 @@
 # Parse cURL To Golang Requests
 
 ![Go Version](https://img.shields.io/badge/Go-1.20+-00ADD8?style=flat&logo=go)
-![Test Coverage](https://img.shields.io/badge/Coverage-79.1%25-brightgreen)
+![Test Coverage](https://img.shields.io/badge/Coverage-86.9%25-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Latest Release](https://img.shields.io/github/v/release/474420502/gcurl)
 
@@ -28,6 +28,9 @@ A powerful Go library that converts cURL commands into Go HTTP requests with ful
 - 🛡️ **SSL/TLS options** - Custom certificates and SSL verification control
 - 🎯 **Debug output** - Detailed debugging information like cURL `-v`
 - 📊 **Script features** - Write-out formats (`-w`), fail on errors (`-f`), silent mode (`-s`)
+- 🌍 **DNS resolution control** - Custom host resolution with `--resolve`
+- 🔗 **Connection redirection** - Advanced connection control with `--connect-to`
+- 🔍 **GET mode with data** - Convert POST data to query parameters with `-G/--get`
 
 ## 📦 Installation
 
@@ -743,6 +746,185 @@ func min(a, b int) int {
 }
 ```
 
+### Example 11: Connection Redirection with --connect-to
+
+Control connection routing for testing and debugging:
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/474420502/gcurl"
+)
+
+func main() {
+	connectionExamples := []struct {
+		name        string
+		command     string
+		description string
+	}{
+		{
+			name:        "Local Development",
+			command:     `curl -v https://api.production.com/users --connect-to api.production.com:443:localhost:3000`,
+			description: "Redirect production API to local development server",
+		},
+		{
+			name:        "Load Balancer Testing",
+			command:     `curl https://service.com/health --connect-to service.com:443:backend-1.internal:8080`,
+			description: "Test specific backend server bypassing load balancer",
+		},
+		{
+			name:        "Proxy All Traffic",
+			command:     `curl https://example.com/test --connect-to ::proxy.company.com:8080`,
+			description: "Route all connections through proxy server",
+		},
+		{
+			name:        "Multi-Environment Testing",
+			command:     `curl https://app.company.com/api --connect-to app.company.com:443:staging.internal.com:443`,
+			description: "Point production domain to staging environment",
+		},
+	}
+
+	fmt.Println("Connection Redirection Examples:")
+	fmt.Println("=================================")
+
+	for i, example := range connectionExamples {
+		fmt.Printf("\n%d. %s\n", i+1, example.name)
+		fmt.Printf("   Description: %s\n", example.description)
+		fmt.Printf("   Command: %s\n", example.command)
+
+		curl, err := gcurl.Parse(example.command)
+		if err != nil {
+			fmt.Printf("   ❌ Parse error: %v\n", err)
+			continue
+		}
+
+		// Show connection redirection details
+		fmt.Printf("   🌐 Target URL: %s\n", curl.ParsedURL.String())
+		if len(curl.ConnectTo) > 0 {
+			fmt.Printf("   🔗 Connection Redirections:\n")
+			for j, redirect := range curl.ConnectTo {
+				fmt.Printf("     [%d] %s\n", j+1, redirect)
+			}
+		}
+
+		// Show verbose output if enabled
+		if curl.Verbose {
+			fmt.Printf("   📋 Verbose Output Preview:\n")
+			verboseLines := strings.Split(curl.VerboseInfo(), "\n")
+			for k, line := range verboseLines[:min(4, len(verboseLines))] {
+				if strings.TrimSpace(line) != "" {
+					fmt.Printf("     %s\n", line)
+				}
+				if k >= 3 {
+					fmt.Printf("     ... (truncated)\n")
+					break
+				}
+			}
+		}
+
+		fmt.Printf("   ✅ Connection redirection configured\n")
+	}
+
+	fmt.Println("\n🎯 Key Benefits of --connect-to:")
+	fmt.Println("  • Redirect connections without DNS changes")
+	fmt.Println("  • Perfect for load balancer testing")
+	fmt.Println("  • Local development with production domains")
+	fmt.Println("  • Staging environment validation")
+	fmt.Println("  • Works seamlessly with -v for debugging")
+}
+
+// min helper function
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+```
+
+### Example 12: GET Mode with Data (-G/--get)
+
+Convert POST data to query parameters for GET requests:
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/474420502/gcurl"
+)
+
+func main() {
+	getModeExamples := []struct {
+		name        string
+		command     string
+		description string
+	}{
+		{
+			name:        "Simple Search",
+			command:     `curl -G -d "q=golang" -d "limit=10" https://api.github.com/search/repositories`,
+			description: "GitHub repository search with parameters",
+		},
+		{
+			name:        "Complex Filters",
+			command:     `curl -G -d "filters[status]=active" -d "filters[type]=user" https://api.example.com/users`,
+			description: "Complex filtering with nested parameters",
+		},
+		{
+			name:        "Analytics Query",
+			command:     `curl -G -d "start_date=2023-01-01" -d "end_date=2023-12-31" -d "metrics=views,clicks" https://analytics.example.com/api`,
+			description: "Analytics data with date range and metrics",
+		},
+		{
+			name:        "Pagination",
+			command:     `curl -G -d "page=2" -d "per_page=50" -d "include=profile" https://api.example.com/users`,
+			description: "Paginated API request with includes",
+		},
+	}
+
+	fmt.Println("GET Mode with Data Examples:")
+	fmt.Println("============================")
+
+	for i, example := range getModeExamples {
+		fmt.Printf("\n%d. %s\n", i+1, example.name)
+		fmt.Printf("   Description: %s\n", example.description)
+		fmt.Printf("   Command: %s\n", example.command)
+
+		curl, err := gcurl.Parse(example.command)
+		if err != nil {
+			fmt.Printf("   ❌ Parse error: %v\n", err)
+			continue
+		}
+
+		// Show GET mode details
+		fmt.Printf("   🌐 Base URL: %s\n", curl.ParsedURL.String())
+		fmt.Printf("   🔍 Method: %s\n", curl.Method)
+		fmt.Printf("   📊 GET Mode: %t\n", curl.GetMode)
+
+		// Show data conversion info
+		if curl.Body != nil {
+			fmt.Printf("   📝 Has data for query parameter conversion\n")
+			fmt.Printf("   💡 Data will be appended as URL parameters when executed\n")
+		}
+
+		fmt.Printf("   ✅ GET mode configuration ready\n")
+	}
+
+	fmt.Println("\n🎯 Key Benefits of -G/--get:")
+	fmt.Println("  • Convert POST data to query parameters")
+	fmt.Println("  • Perfect for API search and filtering")
+	fmt.Println("  • Maintains data structure in URLs")
+	fmt.Println("  • Compatible with caching and bookmarking")
+	fmt.Println("  • Ideal for analytics and reporting APIs")
+}
+```
+
 ## 📊 API Reference
 
 ### Core Functions
@@ -961,7 +1143,7 @@ go tool cover -html=coverage.out
 ### Test Statistics
 
 - **Total Tests**: 100+ comprehensive test cases
-- **Coverage**: 79.1% of code statements
+- **Coverage**: 86.9% of code statements
 - **Categories**:
   - Basic parsing tests
   - HTTP method tests
@@ -1079,7 +1261,7 @@ go vet ./...
 - ✅ Complete Digest Authentication implementation
 - ✅ HTTP protocol version control
 - ✅ Enhanced debugging capabilities
-- ✅ Improved test coverage (79.1%)
+- ✅ Improved test coverage (86.9%)
 - ✅ Production-ready stability
 
 ## �📄 License

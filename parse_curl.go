@@ -167,7 +167,8 @@ func (bd *BodyData) Len() int {
 
 // CURL 结构体表示一个 curl 命令
 type CURL struct {
-	// 基本请求信息
+	// HTTP方法和数据发送控制
+	GetMode   bool        // -G/--get 使用GET方法发送POST数据（将数据附加到URL）
 	Method    string      // HTTP方法
 	ParsedURL *url.URL    // 解析后的URL
 	Header    http.Header // HTTP头
@@ -228,7 +229,8 @@ type CURL struct {
 	IPVersion      int         // 4 或 6，IP版本
 
 	// DNS 和网络解析相关
-	Resolve []string // --resolve 主机名解析映射，格式：host:port:address
+	Resolve   []string // --resolve 主机名解析映射，格式：host:port:address
+	ConnectTo []string // --connect-to 连接重定向映射，格式：HOST1:PORT1:HOST2:PORT2
 
 	// Cookie相关
 	CookieJar  *cookiejar.Jar // Cookie存储
@@ -983,11 +985,28 @@ func (c *CURL) VerboseInfo() string {
 				if len(parts) >= 3 {
 					host := parts[0]
 					if strings.HasPrefix(host, "+") {
-						host = host[1:] // 移除强制替换标记
 						b.WriteString(fmt.Sprintf("*   %s (force): %s\n", parts[0], strings.Join(parts[2:], ":")))
 					} else {
 						b.WriteString(fmt.Sprintf("*   %s:%s -> %s\n", parts[0], parts[1], strings.Join(parts[2:], ":")))
 					}
+				}
+			}
+		}
+
+		// 连接重定向信息
+		if len(c.ConnectTo) > 0 {
+			b.WriteString("* Connection redirects:\n")
+			for _, connectTo := range c.ConnectTo {
+				parts := strings.Split(connectTo, ":")
+				if len(parts) == 4 {
+					sourceHost, sourcePort, targetHost, targetPort := parts[0], parts[1], parts[2], parts[3]
+					if sourceHost == "" {
+						sourceHost = "*"
+					}
+					if sourcePort == "" {
+						sourcePort = "*"
+					}
+					b.WriteString(fmt.Sprintf("*   %s:%s -> %s:%s\n", sourceHost, sourcePort, targetHost, targetPort))
 				}
 			}
 		}

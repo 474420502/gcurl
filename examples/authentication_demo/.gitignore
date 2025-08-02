@@ -1,0 +1,5 @@
+# Ignore Go build output
+authentication_demo
+*.exe
+*.out
+*.test

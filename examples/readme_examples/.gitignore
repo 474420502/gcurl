@@ -1,0 +1,5 @@
+# Ignore Go build output
+readme_examples
+*.exe
+*.out
+*.test

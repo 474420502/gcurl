@@ -1,0 +1,5 @@
+# Ignore Go build output
+advanced_networking
+*.exe
+*.out
+*.test

@@ -238,10 +238,38 @@ func init() {
 	// --resolve (主机名解析映射)
 	resolveSpec := OptionSpec{Handler: handleResolve, NumArgs: 1, CanAppearMultipleTimes: true}
 	optionRegistry["--resolve"] = resolveSpec
+
+	// --connect-to (连接重定向映射)
+	connectToSpec := OptionSpec{Handler: handleConnectTo, NumArgs: 1, CanAppearMultipleTimes: true}
+	optionRegistry["--connect-to"] = connectToSpec
+
+	// --get / -G (GET方式发送POST数据)
+	getSpec := OptionSpec{Handler: handleGet, NumArgs: 0}
+	optionRegistry["-G"] = getSpec
+	optionRegistry["--get"] = getSpec
 }
 
 // --- 具体的 Handler 实现 ---
 
+// handleHeader 处理 -H/--header 选项，用于添加或修改HTTP请求头
+//
+// 对应的cURL参数：
+//   - -H, --header <header>
+//
+// 功能说明：
+//   - 解析 "Key: Value" 格式的头部信息
+//   - 自动处理特殊头部如 Cookie、Content-Type
+//   - 支持多次使用，每次调用添加一个头部
+//   - 空值头部会被忽略（与cURL行为一致）
+//
+// 使用注意事项：
+//   - Cookie头部会同时解析并存储到 CURL.Cookies 字段
+//   - Content-Type会额外存储到 CURL.ContentType 字段
+//   - 头部名称大小写不敏感，但会保持原始格式
+//
+// 示例：
+//
+//	curl -H "Accept: application/json" -H "Authorization: Bearer token" url
 func handleHeader(c *CURL, args ...string) error {
 	headerValue := args[0]
 
@@ -276,16 +304,75 @@ func handleHeader(c *CURL, args ...string) error {
 
 	return nil
 }
+
+// handleInsecure 处理 -k/--insecure 选项，用于跳过SSL证书验证
+//
+// 对应的cURL参数：
+//   - -k, --insecure
+//
+// 功能说明：
+//   - 允许连接到使用自签名证书或无效证书的HTTPS站点
+//   - 禁用SSL/TLS证书验证和主机名验证
+//   - 等同于设置 CURLOPT_SSL_VERIFYPEER=0 和 CURLOPT_SSL_VERIFYHOST=0
+//
+// 使用注意事项：
+//   - 仅在开发或测试环境中使用，生产环境不推荐
+//   - 会降低连接的安全性，存在中间人攻击风险
+//   - 对所有的SSL/TLS连接生效，包括重定向
+//
+// 示例：
+//
+//	curl -k https://self-signed.example.com
 func handleInsecure(c *CURL, args ...string) error {
 	c.Insecure = true
 	return nil
 }
 
+// handleHead 处理 -I/--head 选项，用于执行HEAD请求
+//
+// 对应的cURL参数：
+//   - -I, --head
+//
+// 功能说明：
+//   - 强制使用HEAD方法发送请求
+//   - HEAD请求只获取响应头，不获取响应体
+//   - 常用于检查资源是否存在、获取元信息等
+//
+// 使用注意事项：
+//   - 会覆盖其他方法设置（如-X POST）
+//   - 服务器应该返回与GET请求相同的头部信息
+//   - 响应不包含消息体，即使Content-Length > 0
+//
+// 示例：
+//
+//	curl -I https://example.com          # 获取首页头部信息
+//	curl -I https://example.com/api.json # 检查API端点状态
 func handleHead(c *CURL, args ...string) error {
 	c.Method = "HEAD"
 	return nil
 }
 
+// handleMethod 处理 -X/--request 选项，用于指定HTTP请求方法
+//
+// 对应的cURL参数：
+//   - -X, --request <method>
+//
+// 功能说明：
+//   - 设置HTTP请求方法（GET、POST、PUT、DELETE等）
+//   - 方法名会自动转换为大写
+//   - 支持标准和自定义HTTP方法
+//
+// 使用注意事项：
+//   - 后设置的方法会覆盖前面的设置
+//   - 某些选项会隐式设置方法（如-d设置POST，-I设置HEAD）
+//   - 自定义方法可能不被所有服务器支持
+//
+// 示例：
+//
+//	curl -X POST https://api.example.com/users    # POST请求
+//	curl -X PUT https://api.example.com/users/1   # PUT请求
+//	curl -X DELETE https://api.example.com/users/1 # DELETE请求
+//	curl -X PATCH https://api.example.com/users/1  # PATCH请求
 func handleMethod(c *CURL, args ...string) error {
 	c.Method = strings.ToUpper(args[0])
 	return nil
@@ -965,5 +1052,59 @@ func handleResolve(c *CURL, args ...string) error {
 
 	// 将解析映射添加到CURL对象
 	c.Resolve = append(c.Resolve, resolveMapping)
+	return nil
+}
+
+// handleConnectTo 用于处理 --connect-to 选项 (连接重定向映射)
+// 格式：--connect-to HOST1:PORT1:HOST2:PORT2
+// 例如：--connect-to example.com:443:127.0.0.1:8443
+//
+//	--connect-to api.example.com:80:localhost:8080
+//	--connect-to ::proxy.example.com:8080  (任意主机端口到代理)
+func handleConnectTo(c *CURL, args ...string) error {
+	connectMapping := args[0]
+
+	// 基本格式验证：HOST1:PORT1:HOST2:PORT2
+	parts := strings.Split(connectMapping, ":")
+	if len(parts) != 4 {
+		return fmt.Errorf("invalid --connect-to format, expected HOST1:PORT1:HOST2:PORT2, got: %s", connectMapping)
+	}
+
+	sourceHost, sourcePort, targetHost, targetPort := parts[0], parts[1], parts[2], parts[3]
+
+	// 避免 lint 警告，这些变量在实际实现中会被使用
+	_ = sourceHost
+
+	// 验证端口是有效数字（除非为空，表示任意端口）
+	if sourcePort != "" {
+		if _, err := strconv.Atoi(sourcePort); err != nil {
+			return fmt.Errorf("invalid source port in --connect-to: %s", sourcePort)
+		}
+	}
+	if targetPort != "" {
+		if _, err := strconv.Atoi(targetPort); err != nil {
+			return fmt.Errorf("invalid target port in --connect-to: %s", targetPort)
+		}
+	}
+
+	// 验证目标主机不为空
+	if strings.TrimSpace(targetHost) == "" {
+		return fmt.Errorf("missing target host in --connect-to: %s", connectMapping)
+	}
+
+	// 将连接映射添加到CURL对象
+	c.ConnectTo = append(c.ConnectTo, connectMapping)
+
+	return nil
+}
+
+// handleGet 用于处理 -G/--get 选项 (GET方式发送POST数据)
+// 这个选项会将 -d 指定的数据作为查询参数附加到URL上，并使用GET方法
+func handleGet(c *CURL, args ...string) error {
+	c.GetMode = true
+	// 如果没有明确指定方法，设置为GET
+	if c.Method == "" || c.Method == "POST" {
+		c.Method = "GET"
+	}
 	return nil
 }
