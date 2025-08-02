@@ -10,3 +10,5 @@ vendor
 __debug_bin*
 
 temp/
+*.out
+*.html

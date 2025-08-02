@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"log"
 	"testing"
 
 	"github.com/474420502/gcurl"
@@ -17,11 +16,9 @@ func TestCase1(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	resp, err := c.Temporary().Execute()
-
+	_, err = c.Temporary().Execute()
 	if err != nil {
 		t.Error(err)
 	}
-	log.Println(resp.ContentString())
 
 }
