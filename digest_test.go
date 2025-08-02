@@ -71,8 +71,8 @@ func TestDigestAuthentication(t *testing.T) {
 				return
 			}
 
-			if c.AuthV2.Type != AuthDigest {
-				t.Errorf("handleDigest() AuthType = %v, want %v", c.AuthV2.Type, AuthDigest)
+			if c.AuthV2.Type != "digest" {
+				t.Errorf("handleDigest() AuthType = %v, want %v", c.AuthV2.Type, "digest")
 			}
 
 			if c.AuthV2.Username != tt.wantUser {
@@ -130,8 +130,8 @@ func TestDigestOptionParsing(t *testing.T) {
 				return
 			}
 
-			if c.AuthV2.Type != AuthDigest {
-				t.Errorf("Parse() AuthType = %v, want %v", c.AuthV2.Type, AuthDigest)
+			if c.AuthV2.Type != "digest" {
+				t.Errorf("Parse() AuthType = %v, want %v", c.AuthV2.Type, "digest")
 			}
 
 			if c.AuthV2.Username != tt.wantUser {

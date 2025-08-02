@@ -13,7 +13,13 @@ func isValidURL(urlStr string) bool {
 		return false
 	}
 
-	parsedURL, err := url.Parse(urlStr)
+	// 清理 URL 中的无效字符（如换行符、制表符）
+	cleanURL := strings.ReplaceAll(urlStr, "\n", "")
+	cleanURL = strings.ReplaceAll(cleanURL, "\r", "")
+	cleanURL = strings.ReplaceAll(cleanURL, "\t", "")
+	cleanURL = strings.TrimSpace(cleanURL)
+
+	parsedURL, err := url.Parse(cleanURL)
 	if err != nil {
 		return false
 	}
@@ -29,6 +35,14 @@ func isValidURL(urlStr string) bool {
 	}
 
 	return true
+}
+
+// cleanURL 清理URL中的无效字符
+func cleanURL(urlStr string) string {
+	cleaned := strings.ReplaceAll(urlStr, "\n", "")
+	cleaned = strings.ReplaceAll(cleaned, "\r", "")
+	cleaned = strings.ReplaceAll(cleaned, "\t", "")
+	return strings.TrimSpace(cleaned)
 }
 
 // in parse_options.go or a new parser.go
@@ -48,12 +62,15 @@ func buildFromArgs(args []string) (*CURL, error) {
 			}
 			// 假定这是URL，只处理一次
 			if curl.ParsedURL == nil {
+				// 清理URL中的无效字符
+				cleanedURL := cleanURL(arg)
+
 				// 使用增强的URL验证
-				if !isValidURL(arg) {
+				if !isValidURL(cleanedURL) {
 					return nil, fmt.Errorf("invalid or malformed URL: %s", arg)
 				}
 
-				purl, err := url.Parse(arg)
+				purl, err := url.Parse(cleanedURL)
 				if err != nil {
 					return nil, fmt.Errorf("invalid URL: %s", arg)
 				}

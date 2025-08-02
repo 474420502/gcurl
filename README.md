@@ -17,21 +17,22 @@ A powerful Go library that converts cURL commands into Go HTTP requests with ful
 
 - 🌐 **Complete cURL command parsing** - Parse any cURL command to Go requests
 - 🔧 **Full cURL compatibility** - Support for all major cURL options
-- 📁 **File output support** - Save responses to files with `-o`, `-O`, `--output-dir`, etc.
-- 🔐 **Authentication** - Basic auth, digest auth, and bearer tokens
+- 📁 **File output support** - Save responses to files with `-o`, `-O`, `--output-dir`, `--create-dirs`, `-C` continue
+- 🔐 **Authentication** - Basic auth, digest auth, and bearer tokens (`--oauth2-bearer`)
 - 🌐 **HTTP protocol control** - HTTP/1.0, HTTP/1.1, HTTP/2 support
 - 🍪 **Cookie management** - Full cookie handling and session persistence
-- 📝 **Form data & file uploads** - Multipart forms and file uploads
+- 📝 **Form data & file uploads** - Multipart forms and file uploads with remote header names (`-J`)
 - 🔄 **Redirect handling** - Automatic redirect following with limits
 - ⏱️ **Timeout controls** - Connection and request timeouts
-- 🔐 **Proxy support** - HTTP/HTTPS/SOCKS5 proxy configuration
+- 🔐 **Proxy support** - HTTP/HTTPS/SOCKS5 proxy configuration with authentication
 - 🛡️ **SSL/TLS options** - Custom certificates and SSL verification control
 - 🎯 **Debug output** - Detailed debugging information like cURL `-v`
+- 📊 **Script features** - Write-out formats (`-w`), fail on errors (`-f`), silent mode (`-s`)
 
 ## 📦 Installation
 
 ```bash
-go get github.com/474420502/gcurl@v1.1.0
+go get github.com/474420502/gcurl@v1.2.0
 ```
 
 ## 🎯 Quick Start
@@ -44,7 +45,7 @@ package main
 import (
 	"fmt"
 	"log"
-	
+
 	"github.com/474420502/gcurl"
 )
 
@@ -54,13 +55,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	// Execute the request
 	resp, err := curl.Request().Execute()
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	fmt.Printf("Status: %d\n", resp.GetStatusCode())
 	fmt.Printf("Response: %s\n", resp.ContentString())
 }
@@ -78,7 +79,7 @@ package main
 import (
 	"fmt"
 	"log"
-	
+
 	"github.com/474420502/gcurl"
 )
 
@@ -88,12 +89,12 @@ func main() {
 		-H "Accept: application/json" \
 		-H "User-Agent: MyApp/1.0" \
 		-H "Authorization: Bearer token123"`
-	
+
 	curl, err := gcurl.Parse(curlCmd)
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	// Create session and execute
 	session := curl.CreateSession()
 	resp, err := curl.CreateRequest(session).Execute()
@@ -117,7 +118,7 @@ package main
 import (
 	"fmt"
 	"log"
-	
+
 	"github.com/474420502/gcurl"
 )
 
@@ -125,16 +126,16 @@ func main() {
 	curlCmd := `curl -X POST "https://httpbin.org/post" \
 		-H "Content-Type: application/json" \
 		-d '{"name":"John Doe","email":"john@example.com","age":30}'`
-	
+
 	curl, err := gcurl.Parse(curlCmd)
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	fmt.Printf("Method: %s\n", curl.Method)
 	fmt.Printf("Content-Type: %s\n", curl.ContentType)
 	fmt.Printf("Request Body: %s\n", curl.Body.Content)
-	
+
 	resp, err := curl.Request().Execute()
 	if err != nil {
 		log.Fatal(err)
@@ -156,7 +157,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	
+
 	"github.com/474420502/gcurl"
 )
 
@@ -168,19 +169,19 @@ func main() {
 		log.Fatal(err)
 	}
 	defer os.Remove(testFile)
-	
+
 	curlCmd := fmt.Sprintf(`curl -X POST "https://httpbin.org/post" \
 		-F "file=@%s" \
 		-F "name=John" \
 		-F "description=Sample file upload"`, testFile)
-	
+
 	curl, err := gcurl.Parse(curlCmd)
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	fmt.Printf("Form upload with %d fields\n", len(curl.Body.Forms))
-	
+
 	resp, err := curl.Request().Execute()
 	if err != nil {
 		log.Fatal(err)
@@ -202,7 +203,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	
+
 	"github.com/474420502/gcurl"
 )
 
@@ -281,7 +282,7 @@ package main
 import (
 	"fmt"
 	"log"
-	
+
 	"github.com/474420502/gcurl"
 )
 
@@ -350,7 +351,7 @@ package main
 import (
 	"fmt"
 	"log"
-	
+
 	"github.com/474420502/gcurl"
 )
 
@@ -411,7 +412,7 @@ package main
 import (
 	"fmt"
 	"log"
-	
+
 	"github.com/474420502/gcurl"
 )
 
@@ -455,7 +456,7 @@ import (
 	"log"
 	"time"
 	"net/http"
-	
+
 	"github.com/474420502/gcurl"
 )
 
@@ -485,7 +486,7 @@ func main() {
 
 	// Customize session with timeout and custom headers
 	session.Config().SetTimeout(30 * time.Second)
-	
+
 	customHeaders := make(http.Header)
 	customHeaders.Set("X-Client-Version", "v2.0")
 	customHeaders.Set("X-Request-ID", "req-12345")
@@ -556,79 +557,270 @@ session.SetHeader(headers)
 resp, err := curl.CreateRequest(session).Execute()
 ```
 
+### Example 9: Script Features and Write-Out Formats
+
+Demonstrate script automation features like write-out formats, fail on errors, and silent mode:
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/474420502/gcurl"
+)
+
+func main() {
+	scriptExamples := []struct {
+		name        string
+		command     string
+		description string
+	}{
+		{
+			name:        "Write-out HTTP Code",
+			command:     `curl -w "%{http_code}" -s -o /dev/null https://httpbin.org/get`,
+			description: "Get just the HTTP status code",
+		},
+		{
+			name:        "Write-out Response Time",
+			command:     `curl -w "Time: %{time_total}s\nSize: %{size_download} bytes\n" -s -o /dev/null https://httpbin.org/get`,
+			description: "Get timing and size information",
+		},
+		{
+			name:        "Fail on HTTP Errors",
+			command:     `curl -f https://httpbin.org/status/404`,
+			description: "Fail and exit on HTTP 4xx/5xx errors",
+		},
+		{
+			name:        "Silent Mode with JSON",
+			command:     `curl -s https://httpbin.org/json`,
+			description: "Silent mode - no progress or error info",
+		},
+		{
+			name:        "Remote Header Name for Downloads",
+			command:     `curl -J -O https://httpbin.org/response-headers?Content-Disposition=attachment;filename=test.json`,
+			description: "Use filename from Content-Disposition header",
+		},
+	}
+
+	fmt.Println("Script Features Examples:")
+	fmt.Println("=========================")
+
+	for i, example := range scriptExamples {
+		fmt.Printf("\n%d. %s\n", i+1, example.name)
+		fmt.Printf("   Description: %s\n", example.description)
+		fmt.Printf("   Command: %s\n", example.command)
+
+		curl, err := gcurl.Parse(example.command)
+		if err != nil {
+			fmt.Printf("   ❌ Parse error: %v\n", err)
+			continue
+		}
+
+		// Show parsed script features
+		if curl.WriteOut != "" {
+			fmt.Printf("   📊 Write-out format: %s\n", curl.WriteOut)
+		}
+		if curl.FailOnError {
+			fmt.Printf("   🚫 Fail on HTTP errors: enabled\n")
+		}
+		if curl.Silent {
+			fmt.Printf("   🔇 Silent mode: enabled\n")
+		}
+		if curl.RemoteHeaderName {
+			fmt.Printf("   📝 Remote header name: enabled\n")
+		}
+
+		fmt.Printf("   ✅ Script features configured\n")
+	}
+}
+```
+
+### Example 10: DNS Resolution Control with --resolve
+
+Master DNS resolution for testing and development scenarios:
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"strings"
+
+	"github.com/474420502/gcurl"
+)
+
+func main() {
+	resolutionExamples := []struct {
+		name        string
+		command     string
+		description string
+	}{
+		{
+			name:        "Local Development",
+			command:     `curl -v https://api.production.com/health --resolve api.production.com:443:127.0.0.1`,
+			description: "Test production API locally without modifying /etc/hosts",
+		},
+		{
+			name:        "Load Balancing Test",
+			command:     `curl https://service.com/status --resolve service.com:443:10.0.1.100,10.0.1.101`,
+			description: "Test multiple backend servers",
+		},
+		{
+			name:        "Staging Environment",
+			command:     `curl -H "X-Env: staging" https://api.myapp.com/version --resolve api.myapp.com:443:staging.internal.com`,
+			description: "Point production domain to staging server",
+		},
+		{
+			name:        "Force Override",
+			command:     `curl --resolve +problematic.service.com:443:127.0.0.1 https://problematic.service.com/debug`,
+			description: "Force override DNS resolution (+ prefix)",
+		},
+		{
+			name:        "Multi-Port Service",
+			command:     `curl https://service.com/api --resolve service.com:80:192.168.1.10 --resolve service.com:443:192.168.1.11`,
+			description: "Different servers for HTTP and HTTPS",
+		},
+	}
+
+	fmt.Println("DNS Resolution Control Examples:")
+	fmt.Println("=================================")
+
+	for i, example := range resolutionExamples {
+		fmt.Printf("\n%d. %s\n", i+1, example.name)
+		fmt.Printf("   Description: %s\n", example.description)
+		fmt.Printf("   Command: %s\n", example.command)
+
+		curl, err := gcurl.Parse(example.command)
+		if err != nil {
+			fmt.Printf("   ❌ Parse error: %v\n", err)
+			continue
+		}
+
+		// Show DNS resolution mappings
+		fmt.Printf("   🌐 URL: %s\n", curl.ParsedURL.String())
+		if len(curl.Resolve) > 0 {
+			fmt.Printf("   🔍 DNS Resolutions:\n")
+			for j, resolve := range curl.Resolve {
+				fmt.Printf("     [%d] %s\n", j+1, resolve)
+			}
+		}
+
+		// Show verbose output if enabled
+		if curl.Verbose {
+			fmt.Printf("   📋 Verbose Output Preview:\n")
+			verboseLines := strings.Split(curl.VerboseInfo(), "\n")
+			for k, line := range verboseLines[:min(5, len(verboseLines))] {
+				if strings.TrimSpace(line) != "" {
+					fmt.Printf("     %s\n", line)
+				}
+				if k >= 4 {
+					fmt.Printf("     ... (truncated)\n")
+					break
+				}
+			}
+		}
+
+		fmt.Printf("   ✅ DNS resolution configured\n")
+	}
+
+	fmt.Println("\n🎯 Key Benefits of --resolve:")
+	fmt.Println("  • No need to modify /etc/hosts for testing")
+	fmt.Println("  • Perfect for local development and staging")
+	fmt.Println("  • Load balancer and failover testing")
+	fmt.Println("  • Debugging problematic DNS issues")
+	fmt.Println("  • Works seamlessly with -v for detailed output")
+}
+
+// min helper function
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+```
+
 ## 📊 API Reference
 
 ### Core Functions
 
-| Function | Description | Example |
-|----------|-------------|---------|
-| `gcurl.Parse(cmd string)` | Parse any cURL command | `curl, err := gcurl.Parse("curl https://api.example.com")` |
-| `gcurl.ParseBash(cmd string)` | Parse Bash-style cURL | `curl, err := gcurl.ParseBash("curl 'https://api.example.com'")` |
-| `gcurl.ParseCmd(cmd string)` | Parse Windows CMD-style | `curl, err := gcurl.ParseCmd("curl \"https://api.example.com\"")` |
+| Function                        | Description             | Example                                                             |
+| ------------------------------- | ----------------------- | ------------------------------------------------------------------- |
+| `gcurl.Parse(cmd string)`     | Parse any cURL command  | `curl, err := gcurl.Parse("curl https://api.example.com")`        |
+| `gcurl.ParseBash(cmd string)` | Parse Bash-style cURL   | `curl, err := gcurl.ParseBash("curl 'https://api.example.com'")`  |
+| `gcurl.ParseCmd(cmd string)`  | Parse Windows CMD-style | `curl, err := gcurl.ParseCmd("curl \"https://api.example.com\"")` |
 
 ### CURL Object Methods
 
-| Method | Description | Return Type |
-|--------|-------------|-------------|
-| `CreateSession()` | Create a new HTTP session | `*requests.Session` |
-| `CreateRequest(session)` | Create request with session | `*requests.Request` |
-| `Request()` | Create request (auto-session) | `*requests.Request` |
-| `Debug()` | Get detailed debug info | `string` |
-| `VerboseInfo()` | Get verbose output like `curl -v` | `string` |
-| `Summary()` | Get brief summary | `string` |
+| Method                     | Description                         | Return Type           |
+| -------------------------- | ----------------------------------- | --------------------- |
+| `CreateSession()`        | Create a new HTTP session           | `*requests.Session` |
+| `CreateRequest(session)` | Create request with session         | `*requests.Request` |
+| `Request()`              | Create request (auto-session)       | `*requests.Request` |
+| `Debug()`                | Get detailed debug info             | `string`            |
+| `VerboseInfo()`          | Get verbose output like `curl -v` | `string`            |
+| `Summary()`              | Get brief summary                   | `string`            |
 
 ### Response Object Methods
 
-| Method | Description | Return Type |
-|--------|-------------|-------------|
-| `GetStatusCode()` | HTTP status code | `int` |
-| `Content()` | Response body as bytes | `[]byte` |
-| `ContentString()` | Response body as string | `string` |
-| `GetHeader(key)` | Get response header | `string` |
-| `GetHeaders()` | Get all response headers | `http.Header` |
+| Method              | Description              | Return Type     |
+| ------------------- | ------------------------ | --------------- |
+| `GetStatusCode()` | HTTP status code         | `int`         |
+| `Content()`       | Response body as bytes   | `[]byte`      |
+| `ContentString()` | Response body as string  | `string`      |
+| `GetHeader(key)`  | Get response header      | `string`      |
+| `GetHeaders()`    | Get all response headers | `http.Header` |
 
 ## ✅ Supported cURL Options
 
 ### Comprehensive Feature Matrix
 
-| Category | cURL Option | Description | Status | Example |
-|----------|-------------|-------------|--------|---------|
-| **HTTP Methods** | `-X, --request` | HTTP method (GET, POST, etc.) | ✅ | `curl -X POST` |
-| **Headers** | `-H, --header` | Custom headers | ✅ | `curl -H "Accept: application/json"` |
-| **Request Body** | `-d, --data` | Send POST data | ✅ | `curl -d "name=value"` |
-| | `--data-raw` | Send raw data | ✅ | `curl --data-raw '{"json":true}'` |
-| | `--data-urlencode` | URL encode data | ✅ | `curl --data-urlencode "name=John Doe"` |
-| | `-F, --form` | Multipart form data | ✅ | `curl -F "file=@path/file.txt"` |
-| **Authentication** | `-u, --user` | Basic authentication | ✅ | `curl -u "user:pass"` |
-| | `--digest` | Digest authentication | ✅ | `curl --digest -u "user:pass"` |
-| **Cookies** | `-b, --cookie` | Send cookies | ✅ | `curl -b "session=abc123"` |
-| | `-c, --cookie-jar` | Save cookies to file | ✅ | `curl -c cookies.txt` |
-| **File Operations** | `-o, --output` | Write output to file | ✅ | `curl -o output.txt` |
-| | `-O, --remote-name` | Use remote filename | ✅ | `curl -O` |
-| | `--output-dir` | Output directory | ✅ | `curl --output-dir /downloads` |
-| | `--create-dirs` | Create output directories | ✅ | `curl --create-dirs` |
-| | `-C, --continue-at` | Resume/continue transfer | ✅ | `curl -C 1024` |
-| | `--remove-on-error` | Remove file on HTTP error | ✅ | `curl --remove-on-error` |
-| **HTTP Versions** | `--http1.0` | Force HTTP/1.0 | ✅ | `curl --http1.0` |
-| | `--http1.1` | Force HTTP/1.1 | ✅ | `curl --http1.1` |
-| | `--http2` | Force HTTP/2 | ✅ | `curl --http2` |
-| **Redirects** | `-L, --location` | Follow redirects | ✅ | `curl -L` |
-| | `--max-redirs` | Maximum redirect count | ✅ | `curl --max-redirs 5` |
-| **Timeouts** | `--connect-timeout` | Connection timeout | ✅ | `curl --connect-timeout 10` |
-| | `--max-time` | Maximum total time | ✅ | `curl --max-time 30` |
-| **Proxy** | `--proxy` | Use proxy server | ✅ | `curl --proxy http://proxy:8080` |
-| | `--proxy-user` | Proxy authentication | ✅ | `curl --proxy-user "user:pass"` |
-| **SSL/TLS** | `-k, --insecure` | Skip SSL verification | ✅ | `curl -k` |
-| | `--cacert` | CA certificate file | ✅ | `curl --cacert ca.pem` |
-| | `--cert` | Client certificate | ✅ | `curl --cert client.pem` |
-| | `--key` | Client private key | ✅ | `curl --key client.key` |
-| **Output Control** | `-v, --verbose` | Verbose output | ✅ | `curl -v` |
-| | `-i, --include` | Include response headers | ✅ | `curl -i` |
-| | `-I, --head` | HEAD request only | ✅ | `curl -I` |
-| | `-s, --silent` | Silent mode | ✅ | `curl -s` |
-| **User Agent** | `-A, --user-agent` | Set User-Agent | ✅ | `curl -A "MyApp/1.0"` |
-| **Compression** | `--compressed` | Accept compressed response | ✅ | `curl --compressed` |
-| **Range Requests** | `-r, --range` | Byte range request | ✅ | `curl -r 0-1023` |
+| Category                  | cURL Option           | Description                   | Status | Example                                   |
+| ------------------------- | --------------------- | ----------------------------- | ------ | ----------------------------------------- |
+| **HTTP Methods**    | `-X, --request`     | HTTP method (GET, POST, etc.) | ✅     | `curl -X POST`                          |
+| **Headers**         | `-H, --header`      | Custom headers                | ✅     | `curl -H "Accept: application/json"`    |
+| **Request Body**    | `-d, --data`        | Send POST data                | ✅     | `curl -d "name=value"`                  |
+|                           | `--data-raw`        | Send raw data                 | ✅     | `curl --data-raw '{"json":true}'`       |
+|                           | `--data-urlencode`  | URL encode data               | ✅     | `curl --data-urlencode "name=John Doe"` |
+|                           | `-F, --form`        | Multipart form data           | ✅     | `curl -F "file=@path/file.txt"`         |
+| **Authentication**  | `-u, --user`        | Basic authentication          | ✅     | `curl -u "user:pass"`                   |
+|                           | `--digest`          | Digest authentication         | ✅     | `curl --digest -u "user:pass"`          |
+| **Cookies**         | `-b, --cookie`      | Send cookies                  | ✅     | `curl -b "session=abc123"`              |
+|                           | `-c, --cookie-jar`  | Save cookies to file          | ✅     | `curl -c cookies.txt`                   |
+| **File Operations** | `-o, --output`      | Write output to file          | ✅     | `curl -o output.txt`                    |
+|                           | `-O, --remote-name` | Use remote filename           | ✅     | `curl -O`                               |
+|                           | `--output-dir`      | Output directory              | ✅     | `curl --output-dir /downloads`          |
+|                           | `--create-dirs`     | Create output directories     | ✅     | `curl --create-dirs`                    |
+|                           | `-C, --continue-at` | Resume/continue transfer      | ✅     | `curl -C 1024`                          |
+|                           | `--remove-on-error` | Remove file on HTTP error     | ✅     | `curl --remove-on-error`                |
+| **HTTP Versions**   | `--http1.0`         | Force HTTP/1.0                | ✅     | `curl --http1.0`                        |
+|                           | `--http1.1`         | Force HTTP/1.1                | ✅     | `curl --http1.1`                        |
+|                           | `--http2`           | Force HTTP/2                  | ✅     | `curl --http2`                          |
+| **Redirects**       | `-L, --location`    | Follow redirects              | ✅     | `curl -L`                               |
+|                           | `--max-redirs`      | Maximum redirect count        | ✅     | `curl --max-redirs 5`                   |
+| **Timeouts**        | `--connect-timeout` | Connection timeout            | ✅     | `curl --connect-timeout 10`             |
+|                           | `--max-time`        | Maximum total time            | ✅     | `curl --max-time 30`                    |
+| **Proxy**           | `--proxy`           | Use proxy server              | ✅     | `curl --proxy http://proxy:8080`        |
+|                           | `--proxy-user`      | Proxy authentication          | ✅     | `curl --proxy-user "user:pass"`         |
+| **SSL/TLS**         | `-k, --insecure`    | Skip SSL verification         | ✅     | `curl -k`                               |
+|                           | `--cacert`          | CA certificate file           | ✅     | `curl --cacert ca.pem`                  |
+|                           | `--cert`            | Client certificate            | ✅     | `curl --cert client.pem`                |
+|                           | `--key`             | Client private key            | ✅     | `curl --key client.key`                 |
+| **Authentication**  | `--oauth2-bearer`   | OAuth2 Bearer token           | ✅     | `curl --oauth2-bearer "token123"`       |
+| **Script Features** | `-w, --write-out`   | Write-out format              | ✅     | `curl -w "%{http_code}"`                |
+|                           | `-f, --fail`        | Fail on HTTP errors           | ✅     | `curl -f`                               |
+|                           | `-J, --remote-header-name` | Use remote header filename | ✅ | `curl -J -O`                            |
+| **Output Control**  | `-v, --verbose`     | Verbose output                | ✅     | `curl -v`                               |
+|                           | `-i, --include`     | Include response headers      | ✅     | `curl -i`                               |
+|                           | `-I, --head`        | HEAD request only             | ✅     | `curl -I`                               |
+|                           | `-s, --silent`      | Silent mode                   | ✅     | `curl -s`                               |
+| **User Agent**      | `-A, --user-agent`  | Set User-Agent                | ✅     | `curl -A "MyApp/1.0"`                   |
+| **Compression**     | `--compressed`      | Accept compressed response    | ✅     | `curl --compressed`                     |
+| **Range Requests**  | `-r, --range`       | Byte range request            | ✅     | `curl -r 0-1023`                        |
+| **DNS Resolution**  | `--resolve`         | Custom host:port:address mapping | ✅  | `curl --resolve example.com:443:127.0.0.1` |
 
 ## 🔍 Debug and Troubleshooting
 
@@ -647,6 +839,7 @@ fmt.Println(curl.VerboseInfo())
 ```
 
 **Sample Debug Output:**
+
 ```
 === CURL Debug Information ===
 Method: POST
@@ -669,18 +862,19 @@ Debug Flags: verbose
 
 ### Common Issues and Solutions
 
-| Issue | Symptom | Solution |
-|-------|---------|----------|
-| **URL not parsed** | `invalid or malformed URL` | Ensure URL is properly quoted: `curl "https://example.com"` |
-| **Headers ignored** | Headers not sent | Check header format: `curl -H "Key: Value"` |
-| **File upload fails** | Multipart parsing error | Verify file exists: `curl -F "file=@/path/to/file"` |
-| **Auth not working** | 401 Unauthorized | Check credentials format: `curl -u "user:password"` |
-| **SSL errors** | Certificate verification failed | Use `-k` to skip verification: `curl -k https://...` |
-| **Timeout issues** | Request hangs | Set timeouts: `curl --max-time 30 --connect-timeout 10` |
+| Issue                       | Symptom                         | Solution                                                     |
+| --------------------------- | ------------------------------- | ------------------------------------------------------------ |
+| **URL not parsed**    | `invalid or malformed URL`    | Ensure URL is properly quoted:`curl "https://example.com"` |
+| **Headers ignored**   | Headers not sent                | Check header format:`curl -H "Key: Value"`                 |
+| **File upload fails** | Multipart parsing error         | Verify file exists:`curl -F "file=@/path/to/file"`         |
+| **Auth not working**  | 401 Unauthorized                | Check credentials format:`curl -u "user:password"`         |
+| **SSL errors**        | Certificate verification failed | Use `-k` to skip verification: `curl -k https://...`     |
+| **Timeout issues**    | Request hangs                   | Set timeouts:`curl --max-time 30 --connect-timeout 10`     |
 
 ### Best Practices
 
 1. **Always handle errors**:
+
    ```go
    curl, err := gcurl.Parse(curlCommand)
    if err != nil {
@@ -688,19 +882,19 @@ Debug Flags: verbose
        return
    }
    ```
-
 2. **Reuse sessions for multiple requests**:
+
    ```go
    session := curl.CreateSession()
    // Use session for multiple requests to same host
    ```
-
 3. **Set appropriate timeouts**:
+
    ```go
    session.Config().SetTimeout(30 * time.Second)
    ```
-
 4. **Use debug mode during development**:
+
    ```go
    fmt.Println(curl.Debug()) // See parsed configuration
    ```
@@ -708,6 +902,7 @@ Debug Flags: verbose
 ## 🎯 Performance Tips
 
 ### Connection Reuse
+
 ```go
 // Good: Reuse session for multiple requests
 session := curl1.CreateSession()
@@ -720,6 +915,7 @@ resp2, _ := curl2.Request().Execute() // Another new session
 ```
 
 ### Timeout Configuration
+
 ```go
 // Set reasonable timeouts
 session := curl.CreateSession()
@@ -728,6 +924,7 @@ session.Config().SetConnectTimeout(10 * time.Second)   // Connection timeout
 ```
 
 ### Memory Efficiency
+
 ```go
 // For large responses, consider streaming
 resp, err := curl.Request().Execute()
@@ -765,7 +962,7 @@ go tool cover -html=coverage.out
 
 - **Total Tests**: 100+ comprehensive test cases
 - **Coverage**: 79.1% of code statements
-- **Categories**: 
+- **Categories**:
   - Basic parsing tests
   - HTTP method tests
   - Authentication tests
@@ -781,21 +978,22 @@ We welcome contributions from the community! Here's how you can help:
 ### Ways to Contribute
 
 1. **🐛 Report Bugs**
+
    - Open an issue with detailed reproduction steps
    - Include the cURL command that's causing problems
    - Provide Go version and OS information
-
 2. **💡 Suggest Features**
+
    - Propose new cURL options to support
    - Share use cases and examples
    - Discuss implementation approaches
-
 3. **🔧 Submit Pull Requests**
+
    - Add tests for any new functionality
    - Follow existing code style and conventions
    - Update documentation as needed
-
 4. **📚 Improve Documentation**
+
    - Fix typos and clarify explanations
    - Add more examples and use cases
    - Translate documentation
@@ -846,21 +1044,22 @@ go vet ./...
 ### Phase 3: Advanced Features (Upcoming)
 
 - **Enhanced Session Management**
+
   - Session persistence and restoration
   - Session configuration templates
   - Advanced connection pooling
-
 - **Performance Monitoring**
+
   - Request timing and statistics
   - Connection reuse metrics
   - Memory usage optimization
-
 - **Advanced Authentication**
+
   - OAuth 2.0 flow support
   - JWT token handling
   - API key management
-
 - **Concurrent Processing**
+
   - Parallel request execution
   - Batch command processing
   - Request queue management
@@ -875,6 +1074,7 @@ go vet ./...
 ## � Version History
 
 ### v1.1.0 (Current)
+
 - ✅ Comprehensive file output support (`-o`, `-O`, `--output-dir`, etc.)
 - ✅ Complete Digest Authentication implementation
 - ✅ HTTP protocol version control
@@ -895,8 +1095,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Related Projects
 
-- [mholt/curl-to-go](https://github.com/mholt/curl-to-go) - Online cURL to Go converter
-- [sj26/curl-to-go](https://github.com/sj26/curl-to-go) - Another cURL conversion tool
 - [requests](https://github.com/474420502/requests) - The HTTP client library used by gcurl
 
 ## 📞 Support

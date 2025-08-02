@@ -2,8 +2,8 @@ package gcurl
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -42,10 +42,109 @@ func (hv HTTPVersion) String() string {
 	}
 }
 
+// AuthInfo 表示认证信息
+type AuthInfo struct {
+	Type     string // 认证类型: "basic", "digest", etc.
+	User     string // 用户名
+	Username string // 用户名 (别名)
+	Password string // 密码
+}
+
+// IsValid 检查认证信息是否有效
+func (a *AuthInfo) IsValid() bool {
+	if a == nil {
+		return false
+	}
+	user := a.User
+	if user == "" {
+		user = a.Username
+	}
+	return user != "" && a.Password != ""
+}
+
+// GetAuthHeader 获取认证头信息
+func (a *AuthInfo) GetAuthHeader() string {
+	if !a.IsValid() {
+		return ""
+	}
+	user := a.User
+	if user == "" {
+		user = a.Username
+	}
+	// 这里简单返回基础认证，实际情况可能需要根据 Type 处理
+	return fmt.Sprintf("Basic %s", encodeBasicAuth(user, a.Password))
+}
+
+// encodeBasicAuth 编码基础认证
+func encodeBasicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
 // BodyData 表示不同类型的请求体数据
 type BodyData struct {
 	Type    string      // "raw", "form", "json", "urlencoded", "multipart"
 	Content interface{} // 具体内容，根据Type而不同
+}
+
+// String 返回 BodyData 的字符串表示
+func (bd *BodyData) String() string {
+	if bd == nil {
+		return ""
+	}
+	switch bd.Type {
+	case "raw":
+		if buf, ok := bd.Content.(*bytes.Buffer); ok {
+			return buf.String()
+		}
+	case "form", "urlencoded":
+		if form, ok := bd.Content.(url.Values); ok {
+			return form.Encode()
+		}
+	}
+	if str, ok := bd.Content.(string); ok {
+		return str
+	}
+	return fmt.Sprintf("%v", bd.Content)
+}
+
+// Read 读取 BodyData 的内容
+func (bd *BodyData) Read(p []byte) (n int, err error) {
+	if bd == nil {
+		return 0, fmt.Errorf("BodyData is nil")
+	}
+	switch bd.Type {
+	case "raw":
+		if buf, ok := bd.Content.(*bytes.Buffer); ok {
+			return buf.Read(p)
+		}
+	case "form", "urlencoded":
+		if form, ok := bd.Content.(url.Values); ok {
+			data := form.Encode()
+			buf := bytes.NewBufferString(data)
+			return buf.Read(p)
+		}
+	}
+	if str, ok := bd.Content.(string); ok {
+		buf := bytes.NewBufferString(str)
+		return buf.Read(p)
+	}
+	return 0, fmt.Errorf("unsupported content type")
+}
+
+// WriteString 向 BodyData 写入字符串
+func (bd *BodyData) WriteString(s string) (int, error) {
+	if bd == nil {
+		return 0, fmt.Errorf("BodyData is nil")
+	}
+	if bd.Type == "raw" {
+		if buf, ok := bd.Content.(*bytes.Buffer); ok {
+			return buf.WriteString(s)
+		}
+		return 0, fmt.Errorf("BodyData content is not *bytes.Buffer")
+	}
+	// 对于非raw类型，返回错误而不是自动转换
+	return 0, fmt.Errorf("WriteString is only supported for raw BodyData type")
 }
 
 // 向后兼容方法
@@ -59,74 +158,137 @@ func (bd *BodyData) Len() int {
 			return buf.Len()
 		}
 	case "form", "urlencoded":
-		if str, ok := bd.Content.(string); ok {
-			return len(str)
-		}
-	case "multipart":
-		// multipart的长度需要在构建时计算，这里返回字段数量
-		if fields, ok := bd.Content.([]*FormField); ok {
-			return len(fields)
+		if form, ok := bd.Content.(url.Values); ok {
+			return len(form.Encode())
 		}
 	}
 	return 0
 }
 
-func (bd *BodyData) Read(p []byte) (n int, err error) {
-	if bd == nil {
-		return 0, io.EOF
-	}
-	switch bd.Type {
-	case "raw":
-		if buf, ok := bd.Content.(*bytes.Buffer); ok {
-			return buf.Read(p)
-		}
-	}
-	return 0, io.EOF
+// CURL 结构体表示一个 curl 命令
+type CURL struct {
+	// 基本请求信息
+	Method    string      // HTTP方法
+	ParsedURL *url.URL    // 解析后的URL
+	Header    http.Header // HTTP头
+	Body      *BodyData   // 请求体数据
+	Cookies   []*http.Cookie
+
+	// 认证相关
+	User          string    // -u/--user 用户认证
+	UserAgent     string    // -A/--user-agent
+	Referer       string    // -e/--referer
+	Authorization string    // Authorization头
+	Auth          *AuthInfo // 认证信息（兼容性）
+	AuthV2        *AuthInfo // 新版认证信息
+	ContentType   string    // Content-Type 头
+
+	// 代理相关
+	Proxy         string // 代理服务器地址
+	ProxyUser     string // 代理用户名
+	ProxyPassword string // 代理密码
+
+	// SSL/TLS相关
+	Insecure      bool   // -k/--insecure 忽略SSL证书错误
+	CACert        string // --cacert 自定义CA证书路径
+	ClientCert    string // --cert 客户端证书路径
+	ClientKey     string // --key 客户端私钥路径
+	CertType      string // --cert-type 证书类型
+	KeyType       string // --key-type 私钥类型
+	CAPath        string // --capath CA证书目录
+	CRLFile       string // --crlfile 证书吊销列表
+	SSLVerifyPeer bool   // SSL对等验证
+	SSLVerifyHost bool   // SSL主机验证
+	TLSVersion    string // TLS版本
+	Ciphers       string // 加密套件
+
+	// 超时和重试相关
+	Timeout             time.Duration // 总超时时间
+	ConnectTimeout      time.Duration // 连接超时
+	DNSTimeout          time.Duration // DNS解析超时
+	TLSHandshakeTimeout time.Duration // TLS握手超时
+	MaxRedirs           int           // --max-redirs 最大重定向次数
+	Retry               int           // --retry 重试次数
+	RetryDelay          time.Duration // --retry-delay 重试延迟
+	RetryMaxTime        time.Duration // --retry-max-time 最大重试时间
+	RetryAllErrors      bool          // --retry-all-errors 重试所有错误
+	RetryConnRefused    bool          // --retry-connrefused 连接被拒绝时重试
+
+	// HTTP协议相关
+	HTTP2          bool        // --http2 强制使用HTTP/2
+	HTTPVersion    HTTPVersion // 协议版本控制
+	FollowRedirect bool        // -L/--location 是否跟随重定向
+	MaxFileSize    int64       // --max-filesize 最大文件大小
+	LimitRate      string      // --limit-rate 传输速度限制
+	KeepAlive      bool        // --keepalive 保持连接
+	TCPNoDelay     bool        // --tcp-nodelay TCP无延迟
+	TCPKeepAlive   bool        // --tcp-keepalive TCP保活
+	Interface      string      // --interface 网络接口
+	LocalPort      string      // --local-port 本地端口
+	IPVersion      int         // 4 或 6，IP版本
+
+	// DNS 和网络解析相关
+	Resolve []string // --resolve 主机名解析映射，格式：host:port:address
+
+	// Cookie相关
+	CookieJar  *cookiejar.Jar // Cookie存储
+	CookieFile string         // -c/--cookie-jar Cookie文件
+
+	// 调试和输出控制
+	Verbose    bool   // -v/--verbose 详细输出
+	Include    bool   // -i/--include 在输出中包含响应头
+	Silent     bool   // -s/--silent 静默模式
+	ShowError  bool   // -S/--show-error 显示错误
+	FailEarly  bool   // --fail-early 早期失败
+	Trace      bool   // --trace 追踪所有传入和传出的数据
+	TraceFile  string // --trace-ascii 追踪文件
+	DumpHeader string // -D/--dump-header 转储头文件
+	WriteOut   string // -w/--write-out 输出格式
+
+	// 文件输出控制
+	OutputFile       string // -o/--output 指定输出文件路径
+	RemoteName       bool   // -O/--remote-name 使用远程文件名
+	RemoteHeaderName bool   // -J/--remote-header-name 使用Content-Disposition文件名
+	OutputDir        string // --output-dir 指定输出目录
+	CreateDirs       bool   // --create-dirs 自动创建目录
+	RemoveOnError    bool   // --remove-on-error 出错时删除输出文件
+	ContinueAt       int64  // -C/--continue-at 断点续传偏移
+	Append           bool   // --append 追加到文件
+
+	// 脚本与易用性增强功能
+	WriteOutFormat  string // -w/--write-out 指定输出格式
+	FailOnError     bool   // -f/--fail 脚本错误处理，遇到4xx/5xx返回错误
+	LocationTrusted bool   // --location-trusted 信任重定向位置
+
+	// 表单和数据相关
+	FormData   map[string]string // 表单数据
+	JSONData   interface{}       // JSON数据
+	RawData    []byte            // 原始数据
+	DataBinary []byte            // 二进制数据
+	DataASCII  string            // ASCII数据
+	DataRaw    string            // 原始字符串数据
+	DataURLEnc string            // URL编码数据
+
+	// 上传相关
+	UploadFile string // -T/--upload-file 上传文件
+	Form       string // -F/--form 表单数据
+	FormString string // --form-string 表单字符串
+
+	// 其他选项
+	Config        string   // -K/--config 配置文件
+	Progress      bool     // --progress-bar 进度条
+	NoProgress    bool     // --no-progress 无进度
+	Raw           bool     // --raw 原始输出
+	Buffer        bool     // --buffer 缓冲输出
+	Compressed    bool     // --compressed 压缩传输
+	Globoff       bool     // -g/--globoff 关闭URL通配符
+	IgnoreCase    bool     // --ignore-case 忽略大小写
+	UseASCII      bool     // --use-ascii 使用ASCII
+	StderrFile    string   // --stderr 错误输出文件
+	TelnetOptions []string // --telnet-option Telnet选项
 }
 
-func (bd *BodyData) String() string {
-	if bd == nil {
-		return ""
-	}
-	switch bd.Type {
-	case "raw":
-		if buf, ok := bd.Content.(*bytes.Buffer); ok {
-			return buf.String()
-		}
-	case "form", "urlencoded":
-		if str, ok := bd.Content.(string); ok {
-			return str
-		}
-	case "multipart":
-		if fields, ok := bd.Content.([]*FormField); ok {
-			var parts []string
-			for _, field := range fields {
-				if field.IsFile {
-					parts = append(parts, fmt.Sprintf("%s=@%s", field.Name, field.Value))
-				} else {
-					parts = append(parts, fmt.Sprintf("%s=%s", field.Name, field.Value))
-				}
-			}
-			return strings.Join(parts, "&")
-		}
-	}
-	return ""
-}
-
-func (bd *BodyData) WriteString(s string) (n int, err error) {
-	if bd == nil {
-		return 0, fmt.Errorf("body data is nil")
-	}
-	switch bd.Type {
-	case "raw":
-		if buf, ok := bd.Content.(*bytes.Buffer); ok {
-			return buf.WriteString(s)
-		}
-	}
-	return 0, fmt.Errorf("cannot write to body type: %s", bd.Type)
-}
-
-// setRawBody 设置原始字节数据类型的Body
+// setRawBody 设置原始字节数据作为请求体
 func (c *CURL) setRawBody(data []byte) {
 	c.Body = &BodyData{
 		Type:    "raw",
@@ -134,7 +296,7 @@ func (c *CURL) setRawBody(data []byte) {
 	}
 }
 
-// setRawBodyString 设置原始字符串类型的Body
+// setRawBodyString 设置原始字符串数据作为请求体
 func (c *CURL) setRawBodyString(data string) {
 	c.Body = &BodyData{
 		Type:    "raw",
@@ -142,57 +304,101 @@ func (c *CURL) setRawBodyString(data string) {
 	}
 }
 
-// CURL 信息结构
-type CURL struct {
-	ParsedURL *url.URL
-	Method    string
-	Header    http.Header
-	CookieJar http.CookieJar
-	// --- 请做如下修改 ---
-	// Cookies   []http.Cookie // 旧定义
-	Cookies []*http.Cookie // 新定义：使用指针切片，符合标准库和requests库的用法
-	// --- 修改结束 ---
-	ContentType string
-	Body        *BodyData // 改为更灵活的结构
+// SaveToFile 将响应内容保存到文件
+func (c *CURL) SaveToFile(response *requests.Response) error {
+	if response == nil {
+		return fmt.Errorf("response is nil")
+	}
 
-	// 认证系统 - 扩展支持多种认证方式
-	Auth   *requests.BasicAuth // 保持向后兼容
-	AuthV2 *Authentication     // 新的认证系统
+	// 确定输出文件路径
+	var outputPath string
 
-	// 超时配置 - 升级为 time.Duration 类型以提供更好的类型安全
-	Timeout             time.Duration // 对应 --max-time, 总超时
-	ConnectTimeout      time.Duration // 对应 --connect-timeout, 连接超时
-	DNSTimeout          time.Duration // DNS解析超时
-	TLSHandshakeTimeout time.Duration // TLS握手超时
+	// 1. Content-Disposition 文件名 (-J)
+	if c.RemoteHeaderName {
+		hdr := response.GetHeader()
+		if cd := hdr.Get("Content-Disposition"); cd != "" {
+			re := regexp.MustCompile(`filename\*?=([^;]+)`)
+			if m := re.FindStringSubmatch(cd); len(m) == 2 {
+				filename := strings.Trim(m[1], `"`)
+				if c.OutputDir != "" {
+					outputPath = filepath.Join(c.OutputDir, filename)
+				} else if c.OutputFile != "" {
+					outputPath = filepath.Join(filepath.Dir(c.OutputFile), filename)
+				} else {
+					outputPath = filename
+				}
+			}
+		}
+	}
 
-	Insecure  bool
-	Proxy     string // 新增字段，用于存储代理地址
-	LimitRate string // 新增字段，用于存储传输速度限制
+	// 2. 普通 -o or -O
+	if outputPath == "" {
+		var err error
+		outputPath, err = c.determineOutputPath()
+		if err != nil {
+			return fmt.Errorf("failed to determine output path: %w", err)
+		}
+		if outputPath == "" {
+			return nil
+		}
+	}
 
-	// 新增SSL/TLS相关字段
-	CACert     string // --cacert 自定义CA证书路径
-	ClientCert string // --cert 客户端证书路径
-	ClientKey  string // --key 客户端私钥路径
+	// 创建目录
+	if c.CreateDirs {
+		dir := filepath.Dir(outputPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directories: %w", err)
+		}
+	}
 
-	// 新增HTTP协议相关字段
-	HTTP2          bool        // --http2 强制使用HTTP/2
-	HTTPVersion    HTTPVersion // 协议版本控制
-	MaxRedirs      int         // --max-redirs 最大重定向次数 (-1表示无限制)
-	FollowRedirect bool        // -L/--location 是否跟随重定向
+	// 打开文件
+	file, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
 
-	// 新增调试和输出控制字段
-	Verbose bool // -v/--verbose 详细输出
-	Include bool // -i/--include 在输出中包含响应头
-	Silent  bool // -s/--silent 静默模式
-	Trace   bool // --trace 追踪所有传入和传出的数据
+	// 写入内容
+	content := response.Content()
+	if _, err := file.Write(content); err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
 
-	// 新增文件输出控制字段
-	OutputFile    string // -o/--output 指定输出文件路径
-	RemoteName    bool   // -O/--remote-name 使用远程文件名作为输出文件名
-	OutputDir     string // --output-dir 指定输出目录
-	CreateDirs    bool   // --create-dirs 自动创建目录
-	RemoveOnError bool   // --remove-on-error 出错时删除输出文件
-	ContinueAt    int64  // -C/--continue-at 断点续传偏移
+	return nil
+}
+
+// determineOutputPath 确定输出文件路径
+func (c *CURL) determineOutputPath() (string, error) {
+	if c.OutputFile != "" {
+		// 如果同时指定了输出目录，则组合路径
+		if c.OutputDir != "" {
+			return filepath.Join(c.OutputDir, c.OutputFile), nil
+		}
+		return c.OutputFile, nil
+	}
+
+	if c.RemoteName && c.ParsedURL != nil {
+		// 从URL获取文件名
+		path := c.ParsedURL.Path
+		var filename string
+
+		if path == "" || path == "/" {
+			// 根路径时使用默认文件名
+			filename = "index.html"
+		} else {
+			filename = filepath.Base(path)
+			if filename == "." || filename == "/" {
+				filename = "index.html"
+			}
+		}
+
+		if c.OutputDir != "" {
+			return filepath.Join(c.OutputDir, filename), nil
+		}
+		return filename, nil
+	}
+
+	return "", nil
 }
 
 // New new 一个 curl 出来
@@ -239,13 +445,30 @@ func (curl *CURL) String() string {
 	return ""
 }
 
-// Execute 直接执行curlbash
+// Execute 直接执行curlbash，并支持脚本选项 --fail 和 --write-out
+// Execute 直接执行curlbash，并支持脚本选项 --fail 和 --write-out
 func Execute(curlbash string) (*requests.Response, error) {
 	c, err := ParseBash(curlbash)
 	if err != nil {
 		return nil, err
 	}
-	return c.CreateRequest(nil).Execute()
+	start := time.Now()
+	resp, err := c.CreateRequest(nil).Execute()
+	duration := time.Since(start)
+	// 脚本错误处理
+	if c.FailOnError && resp != nil && resp.GetStatusCode() >= 400 {
+		return resp, fmt.Errorf("HTTP error: %d", resp.GetStatusCode())
+	}
+	// 格式化输出
+	if c.WriteOutFormat != "" && resp != nil {
+		out := c.WriteOutFormat
+		// 支持 %{http_code}
+		out = strings.ReplaceAll(out, "%{http_code}", fmt.Sprintf("%d", resp.GetStatusCode()))
+		// 支持 %{time_total}
+		out = strings.ReplaceAll(out, "%{time_total}", fmt.Sprintf("%.3f", duration.Seconds()))
+		fmt.Print(out)
+	}
+	return resp, err
 }
 
 // CreateSession 创建Session
@@ -264,13 +487,13 @@ func (curl *CURL) CreateSession() *requests.Session {
 	// 设置认证 - 支持新的认证系统
 	if curl.AuthV2 != nil && curl.AuthV2.IsValid() {
 		switch curl.AuthV2.Type {
-		case AuthBasic:
+		case "basic":
 			ses.Config().SetBasicAuth(curl.AuthV2.Username, curl.AuthV2.Password)
-		case AuthDigest:
+		case "digest":
 			// Digest认证需要特殊处理
 			ses.Config().SetBasicAuth(curl.AuthV2.Username, curl.AuthV2.Password)
 			// TODO: 在requests库中实现真正的Digest认证支持
-		case AuthBearer:
+		case "bearer":
 			// Bearer认证通过Header设置
 			authHeader := make(http.Header)
 			authHeader.Set("Authorization", curl.AuthV2.GetAuthHeader())
@@ -286,9 +509,17 @@ func (curl *CURL) CreateSession() *requests.Session {
 		ses.Config().SetInsecure(curl.Insecure)
 	}
 
-	// 设置代理（包括SOCKS5）
+	// 设置代理（包括SOCKS5）及可选的代理认证
 	if curl.Proxy != "" {
-		ses.Config().SetProxy(curl.Proxy)
+		proxyURL := curl.Proxy
+		// 如果提供了代理用户信息，注入到URL中
+		if curl.ProxyUser != "" {
+			if u, err := url.Parse(curl.Proxy); err == nil {
+				u.User = url.UserPassword(curl.ProxyUser, curl.ProxyPassword)
+				proxyURL = u.String()
+			}
+		}
+		ses.Config().SetProxy(proxyURL)
 	}
 
 	// 设置连接超时（如果指定了）
@@ -744,6 +975,23 @@ func (c *CURL) VerboseInfo() string {
 	var b strings.Builder
 
 	if c.ParsedURL != nil {
+		// DNS 解析信息
+		if len(c.Resolve) > 0 {
+			b.WriteString("* DNS resolution overrides:\n")
+			for _, resolve := range c.Resolve {
+				parts := strings.Split(resolve, ":")
+				if len(parts) >= 3 {
+					host := parts[0]
+					if strings.HasPrefix(host, "+") {
+						host = host[1:] // 移除强制替换标记
+						b.WriteString(fmt.Sprintf("*   %s (force): %s\n", parts[0], strings.Join(parts[2:], ":")))
+					} else {
+						b.WriteString(fmt.Sprintf("*   %s:%s -> %s\n", parts[0], parts[1], strings.Join(parts[2:], ":")))
+					}
+				}
+			}
+		}
+
 		b.WriteString(fmt.Sprintf("* Trying %s...\n", c.ParsedURL.Host))
 		b.WriteString(fmt.Sprintf("* Connected to %s port %s\n", c.ParsedURL.Hostname(), c.ParsedURL.Port()))
 
@@ -779,119 +1027,4 @@ func (c *CURL) VerboseInfo() string {
 	}
 
 	return b.String()
-}
-
-// SaveToFile 将响应内容保存到文件
-func (c *CURL) SaveToFile(response *requests.Response) error {
-	if response == nil {
-		return fmt.Errorf("response is nil")
-	}
-
-	// 确定输出文件路径
-	outputPath, err := c.determineOutputPath()
-	if err != nil {
-		return fmt.Errorf("failed to determine output path: %w", err)
-	}
-
-	// 如果没有指定输出文件，返回nil（输出到stdout）
-	if outputPath == "" {
-		return nil
-	}
-
-	// 创建目录（如果需要）
-	if c.CreateDirs {
-		dir := filepath.Dir(outputPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create directories: %w", err)
-		}
-	}
-
-	// 处理断点续传
-	var file *os.File
-	var existingSize int64 = 0
-
-	if c.ContinueAt != 0 {
-		// 检查文件是否存在
-		if info, err := os.Stat(outputPath); err == nil {
-			existingSize = info.Size()
-
-			if c.ContinueAt == -1 {
-				// 自动检测模式，使用现有文件大小
-				c.ContinueAt = existingSize
-			}
-
-			// 以追加模式打开文件
-			file, err = os.OpenFile(outputPath, os.O_WRONLY|os.O_APPEND, 0644)
-			if err != nil {
-				return fmt.Errorf("failed to open file for continuation: %w", err)
-			}
-		} else {
-			// 文件不存在，创建新文件
-			file, err = os.Create(outputPath)
-			if err != nil {
-				return fmt.Errorf("failed to create file: %w", err)
-			}
-			c.ContinueAt = 0
-		}
-	} else {
-		// 创建新文件（覆盖模式）
-		file, err = os.Create(outputPath)
-		if err != nil {
-			return fmt.Errorf("failed to create file: %w", err)
-		}
-	}
-
-	defer func() {
-		file.Close()
-		// 如果设置了出错时删除文件，且发生错误，则删除文件
-		if c.RemoveOnError && err != nil {
-			os.Remove(outputPath)
-		}
-	}()
-
-	// 写入响应内容
-	content := response.Content()
-	if _, err := file.Write(content); err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	return nil
-}
-
-// determineOutputPath 确定输出文件路径
-func (c *CURL) determineOutputPath() (string, error) {
-	var outputPath string
-
-	if c.OutputFile != "" {
-		// 用户指定了输出文件名
-		outputPath = c.OutputFile
-	} else if c.RemoteName {
-		// 使用远程文件名
-		if c.ParsedURL == nil {
-			return "", fmt.Errorf("no URL available for remote name")
-		}
-
-		// 从URL路径中提取文件名
-		path := c.ParsedURL.Path
-		if path == "" || path == "/" {
-			// 如果没有路径或只有根路径，使用默认文件名
-			outputPath = "index.html"
-		} else {
-			// 提取最后一个路径段作为文件名
-			outputPath = filepath.Base(path)
-			if outputPath == "." || outputPath == "/" {
-				outputPath = "index.html"
-			}
-		}
-	} else {
-		// 没有指定输出文件，返回空字符串表示输出到stdout
-		return "", nil
-	}
-
-	// 如果指定了输出目录，则组合路径
-	if c.OutputDir != "" {
-		outputPath = filepath.Join(c.OutputDir, outputPath)
-	}
-
-	return outputPath, nil
 }

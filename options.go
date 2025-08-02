@@ -137,6 +137,10 @@ func init() {
 	proxySpec := OptionSpec{Handler: handleProxy, NumArgs: 1}
 	optionRegistry["--proxy"] = proxySpec
 	optionRegistry["-x"] = proxySpec
+	// --proxy-user / -U (代理认证 用户:密码)
+	proxyUserSpec := OptionSpec{Handler: handleProxyUser, NumArgs: 1}
+	optionRegistry["-U"] = proxyUserSpec
+	optionRegistry["--proxy-user"] = proxyUserSpec
 
 	// --max-redirs (最大重定向次数)
 	maxRedirsSpec := OptionSpec{Handler: handleMaxRedirs, NumArgs: 1}
@@ -217,13 +221,36 @@ func init() {
 	optionRegistry["-C"] = continueAtSpec
 	optionRegistry["--continue-at"] = continueAtSpec
 
-	// 在这里可以继续注册其他选项, 例如 --user-agent
+	// 注册脚本与易用性增强选项
+	// --write-out / -w (格式化输出)
+	writeOutSpec := OptionSpec{Handler: handleWriteOut, NumArgs: 1}
+	optionRegistry["-w"] = writeOutSpec
+	optionRegistry["--write-out"] = writeOutSpec
+	// --remote-header-name / -J (使用 Content-Disposition 中的文件名)
+	remoteHeaderNameSpec := OptionSpec{Handler: handleRemoteHeaderName, NumArgs: 0}
+	optionRegistry["-J"] = remoteHeaderNameSpec
+	optionRegistry["--remote-header-name"] = remoteHeaderNameSpec
+	// --fail / -f (脚本错误处理)
+	failSpec := OptionSpec{Handler: handleFail, NumArgs: 0}
+	optionRegistry["-f"] = failSpec
+	optionRegistry["--fail"] = failSpec
+
+	// --resolve (主机名解析映射)
+	resolveSpec := OptionSpec{Handler: handleResolve, NumArgs: 1, CanAppearMultipleTimes: true}
+	optionRegistry["--resolve"] = resolveSpec
 }
 
 // --- 具体的 Handler 实现 ---
 
 func handleHeader(c *CURL, args ...string) error {
-	key, value, err := parseHTTPHeaderKeyValue(args[0])
+	headerValue := args[0]
+
+	// 忽略空头部（与 curl 行为一致）
+	if strings.TrimSpace(headerValue) == "" {
+		return nil
+	}
+
+	key, value, err := parseHTTPHeaderKeyValue(headerValue)
 	if err != nil {
 		return fmt.Errorf("invalid header format: %w", err)
 	}
@@ -531,7 +558,7 @@ func handleUser(c *CURL, args ...string) error {
 		return fmt.Errorf("invalid user format. Expected 'user:password', got '%s'", userpass)
 	}
 	if c.Auth == nil {
-		c.Auth = &requests.BasicAuth{}
+		c.Auth = &AuthInfo{Type: "basic"}
 	}
 	c.Auth.User = parts[0]
 	c.Auth.Password = parts[1]
@@ -548,7 +575,12 @@ func handleDigest(c *CURL, args ...string) error {
 		return fmt.Errorf("invalid digest format. Expected 'user:password', got '%s'", userpass)
 	}
 	// 使用新的 AuthV2 系统
-	auth := NewDigestAuth(parts[0], parts[1])
+	auth := &AuthInfo{
+		Type:     "digest",
+		User:     parts[0],
+		Username: parts[0],
+		Password: parts[1],
+	}
 	c.AuthV2 = auth
 	return nil
 }
@@ -695,6 +727,18 @@ func handleProxy(c *CURL, args ...string) error {
 	return nil
 }
 
+// handleProxyUser 用于处理 --proxy-user / -U 选项 (代理认证 用户:密码)
+func handleProxyUser(c *CURL, args ...string) error {
+	cred := args[0]
+	parts := strings.SplitN(cred, ":", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid proxy-user format: expected user:password")
+	}
+	c.ProxyUser = parts[0]
+	c.ProxyPassword = parts[1]
+	return nil
+}
+
 // handleMaxRedirs 用于处理 --max-redirs 选项 (最大重定向次数)
 func handleMaxRedirs(c *CURL, args ...string) error {
 	maxRedirs := args[0]
@@ -748,6 +792,24 @@ func handleClientKey(c *CURL, args ...string) error {
 	}
 
 	c.ClientKey = keyPath
+	return nil
+}
+
+// handleWriteOut 用于处理 -w/--write-out 选项 (格式化输出)
+func handleWriteOut(c *CURL, args ...string) error {
+	c.WriteOutFormat = args[0]
+	return nil
+}
+
+// handleRemoteHeaderName 用于处理 -J/--remote-header-name 选项 (使用 Content-Disposition 中的文件名)
+func handleRemoteHeaderName(c *CURL, args ...string) error {
+	c.RemoteHeaderName = true
+	return nil
+}
+
+// handleFail 用于处理 -f/--fail 选项 (HTTP 错误时返回非零退出码)
+func handleFail(c *CURL, args ...string) error {
+	c.FailOnError = true
 	return nil
 }
 
@@ -815,7 +877,13 @@ func handleTrace(c *CURL, args ...string) error {
 
 // handleOutput 用于处理 -o, --output 选项 (指定输出文件)
 func handleOutput(c *CURL, args ...string) error {
-	c.OutputFile = args[0]
+	path := args[0]
+	// 如果路径存在且为目录，则视为输出目录
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		c.OutputDir = path
+	} else {
+		c.OutputFile = path
+	}
 	return nil
 }
 
@@ -865,5 +933,37 @@ func handleContinueAt(c *CURL, args ...string) error {
 	}
 
 	c.ContinueAt = offset
+	return nil
+}
+
+// handleResolve 用于处理 --resolve 选项 (主机名解析映射)
+// 格式：--resolve [+]host:port:address[,address]...
+// 例如：--resolve example.com:80:192.168.1.100
+//
+//	--resolve example.com:443:192.168.1.100,192.168.1.101
+//	--resolve +example.com:80:192.168.1.100  (强制替换)
+func handleResolve(c *CURL, args ...string) error {
+	resolveMapping := args[0]
+
+	// 基本格式验证：host:port:address
+	parts := strings.Split(resolveMapping, ":")
+	if len(parts) < 3 {
+		return fmt.Errorf("invalid --resolve format, expected host:port:address, got: %s", resolveMapping)
+	}
+
+	// 验证端口是有效数字
+	port := parts[1]
+	if _, err := strconv.Atoi(port); err != nil {
+		return fmt.Errorf("invalid port in --resolve: %s", port)
+	}
+
+	// 验证至少有一个地址
+	addressPart := strings.Join(parts[2:], ":")
+	if strings.TrimSpace(addressPart) == "" {
+		return fmt.Errorf("missing address in --resolve: %s", resolveMapping)
+	}
+
+	// 将解析映射添加到CURL对象
+	c.Resolve = append(c.Resolve, resolveMapping)
 	return nil
 }
