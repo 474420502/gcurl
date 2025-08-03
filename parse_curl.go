@@ -781,7 +781,7 @@ func ParseBash(scurl string) (*CURL, error) {
 func (c *CURL) Debug() string {
 	var b strings.Builder
 	b.WriteString("=== CURL Debug Information ===\n")
-	
+
 	c.debugBasicInfo(&b)
 	c.debugHeaders(&b)
 	c.debugCookies(&b)
@@ -792,7 +792,7 @@ func (c *CURL) Debug() string {
 	c.debugRedirectConfig(&b)
 	c.debugFlags(&b)
 	c.debugFileOutput(&b)
-	
+
 	b.WriteString("===============================")
 	return b.String()
 }
