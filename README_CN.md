@@ -38,24 +38,24 @@ go get github.com/474420502/gcurl@v1.2.0
 package main
 
 import (
-	"fmt"
-	"log"
-	"github.com/474420502/gcurl"
+   "fmt"
+   "log"
+   "github.com/474420502/gcurl"
 )
 
 func main() {
-	curlCmd := `curl -X POST "https://api.example.com/users" \
-		-H "Content-Type: application/json" \
-		-d '{"name": "张三", "email": "zhangsan@example.com"}'`
+   curlCmd := `curl -X POST "https://api.example.com/users" \
+      -H "Content-Type: application/json" \
+      -d '{"name": "张三", "email": "zhangsan@example.com"}'`
 
-	curl, err := gcurl.ParseCurl(curlCmd)
-	if err != nil {
-		log.Fatal(err)
-	}
+   curl, err := gcurl.ParseCurl(curlCmd)
+   if err != nil {
+      log.Fatal(err)
+   }
 
-	fmt.Printf("URL: %s\n", curl.URL)
-	fmt.Printf("方法: %s\n", curl.Method)
-	fmt.Printf("数据: %s\n", string(curl.Data))
+   fmt.Printf("URL: %s\n", curl.URL)
+   fmt.Printf("方法: %s\n", curl.Method)
+   fmt.Printf("数据: %s\n", string(curl.Data))
 }
 ```
 
@@ -68,7 +68,7 @@ curlCmd := `curl -H "Authorization: Bearer token123" "https://api.github.com/use
 
 curl, err := gcurl.ParseCurl(curlCmd)
 if err != nil {
-	log.Fatal(err)
+   log.Fatal(err)
 }
 
 // 使用解析后的结构
@@ -80,12 +80,12 @@ fmt.Printf("头部: %v\n", curl.Headers)
 
 ```go
 curlCmd := `curl -X POST "https://api.example.com/data" \
-	-H "Content-Type: application/json" \
-	-d '{"key": "value", "number": 42}'`
+   -H "Content-Type: application/json" \
+   -d '{"key": "value", "number": 42}'`
 
 curl, err := gcurl.ParseCurl(curlCmd)
 if err != nil {
-	log.Fatal(err)
+   log.Fatal(err)
 }
 
 fmt.Printf("请求体: %s\n", string(curl.Data))
@@ -95,12 +95,12 @@ fmt.Printf("请求体: %s\n", string(curl.Data))
 
 ```go
 curlCmd := `curl -X POST "https://upload.example.com/files" \
-	-F "file=@document.pdf" \
-	-F "description=重要文档"`
+   -F "file=@document.pdf" \
+   -F "description=重要文档"`
 
 curl, err := gcurl.ParseCurl(curlCmd)
 if err != nil {
-	log.Fatal(err)
+   log.Fatal(err)
 }
 
 fmt.Printf("表单数据: %v\n", curl.Form)
@@ -113,7 +113,7 @@ curlCmd := `curl --digest -u "用户名:密码" "https://secure.example.com/api"
 
 curl, err := gcurl.ParseCurl(curlCmd)
 if err != nil {
-	log.Fatal(err)
+   log.Fatal(err)
 }
 
 fmt.Printf("认证类型: Digest\n")
@@ -127,7 +127,7 @@ curlCmd := `curl -o "输出.html" "https://example.com"`
 
 curl, err := gcurl.ParseCurl(curlCmd)
 if err != nil {
-	log.Fatal(err)
+   log.Fatal(err)
 }
 
 fmt.Printf("输出文件: %s\n", curl.OutputFile)
@@ -140,7 +140,7 @@ curlCmd := `curl --http2 "https://api.example.com/v2/data"`
 
 curl, err := gcurl.ParseCurl(curlCmd)
 if err != nil {
-	log.Fatal(err)
+   log.Fatal(err)
 }
 
 fmt.Printf("HTTP 版本: %s\n", curl.HTTPVersion.String())
@@ -301,9 +301,21 @@ go fmt ./...
   - 批量命令处理
   - 请求队列管理
 
+
 ## 📋 版本历史
 
-### v1.1.0 (当前版本)
+### v1.2.1（当前版本）
+
+- 🛠️ **代码质量与架构重大改进**
+  - 全局变量全部重构为线程安全（如 gserver → getTestServer + sync.Once）
+  - Debug 函数复杂度从 46 降低到 1，拆分为 10+ 个辅助方法
+  - optionRegistry 增加线程安全文档说明
+  - 新增详细 CODE_QUALITY_REPORT.md，包含复杂度与技术债务分析
+  - 所有 gserver 引用已切换为新线程安全方法
+  - 保持 86.9% 测试覆盖率，所有测试通过
+  - 注释与技术债务跟踪文档完善
+
+### v1.1.0
 
 - ✅ 全面的文件输出支持（`-o`、`-O`、`--output-dir` 等）
 - ✅ 完整的摘要认证实现

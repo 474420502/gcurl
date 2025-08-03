@@ -1062,8 +1062,8 @@ Debug Flags: verbose
    ```go
    curl, err := gcurl.Parse(curlCommand)
    if err != nil {
-       log.Printf("Parse error: %v", err)
-       return
+	   log.Printf("Parse error: %v", err)
+	   return
    }
    ```
 2. **Reuse sessions for multiple requests**:
@@ -1113,8 +1113,8 @@ session.Config().SetConnectTimeout(10 * time.Second)   // Connection timeout
 // For large responses, consider streaming
 resp, err := curl.Request().Execute()
 if err == nil {
-    // Process response.Content() efficiently
-    // Don't store large responses in memory unnecessarily
+	// Process response.Content() efficiently
+	// Don't store large responses in memory unnecessarily
 }
 ```
 
@@ -1255,9 +1255,21 @@ go vet ./...
 - Integration with popular Go frameworks
 - Advanced debugging and profiling tools
 
-## � Version History
 
-### v1.2.0 (Current)
+## 📋 Version History
+
+### v1.2.1 (Current)
+
+- 🛠️ **Major code quality and architecture improvements**
+  - Refactored all global variables for thread safety (e.g., gserver → getTestServer with sync.Once)
+  - Debug function refactored from complexity 46 to 1 (split into 10+ helpers)
+  - Added comprehensive thread safety documentation for optionRegistry
+  - Created detailed CODE_QUALITY_REPORT.md with metrics and analysis
+  - All gserver references updated to use new thread-safe accessor
+  - Maintained 86.9% test coverage with all tests passing
+  - Improved code comments and technical debt tracking
+
+### v1.2.0
 
 - ✅ Added `--connect-to` option for network troubleshooting and load balancing
 - ✅ Implemented `-G/--get` option for converting POST data to GET query parameters  
@@ -1267,7 +1279,7 @@ go vet ./...
 - ✅ Added detailed implementation documentation
 - ✅ Cleaned up repository for professional release standards
 
-### v1.1.0 (Previous)
+### v1.1.0
 
 - ✅ Comprehensive file output support (`-o`, `-O`, `--output-dir`, etc.)
 - ✅ Complete Digest Authentication implementation
